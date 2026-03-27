@@ -91,7 +91,7 @@ export const copy = {
   audit: {
     eyebrow: "Verlauf",
     title: "Aktivitätsprotokoll",
-    openButton: "Protokoll",
+    openButton: "Audit Log",
     close: "Schliessen",
     loading: "Lädt Protokoll...",
     loadError: "Fehler beim Laden des Protokolls",

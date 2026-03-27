@@ -73,9 +73,11 @@ const emit = defineEmits<{
         </p>
 
         <div class="room-actions">
+            <!-- Primäre Aktion: volle Breite -->
             <UiButton
                 type="button"
                 slim
+                block
                 :variant="room.internet_enabled ? 'roomLock' : 'roomUnlock'"
                 :disabled="loading"
                 @click.stop="emit('toggle', room)"
@@ -83,29 +85,32 @@ const emit = defineEmits<{
                 {{ room.internet_enabled ? copy.room.lock : copy.room.unlock }}
             </UiButton>
 
-            <UiButton
-                type="button"
-                slim
-                variant="roomOutline"
-                :disabled="loading"
-                @click.stop="emit('manage', room)"
-            >
-                {{
-                    room.internet_enabled
-                        ? copy.room.manageWhitelist
-                        : copy.room.whitelistDirect
-                }}
-            </UiButton>
+            <!-- Sekundäre Aktionen: nebeneinander -->
+            <div class="room-actions-secondary">
+                <UiButton
+                    type="button"
+                    slim
+                    variant="roomOutline"
+                    :disabled="loading"
+                    @click.stop="emit('manage', room)"
+                >
+                    {{
+                        room.internet_enabled
+                            ? copy.room.manageWhitelist
+                            : copy.room.whitelistDirect
+                    }}
+                </UiButton>
 
-            <UiButton
-                type="button"
-                slim
-                variant="roomOutline"
-                :disabled="loading"
-                @click.stop="emit('schedule', room)"
-            >
-                {{ copy.room.schedule }}
-            </UiButton>
+                <UiButton
+                    type="button"
+                    slim
+                    variant="roomOutline"
+                    :disabled="loading"
+                    @click.stop="emit('schedule', room)"
+                >
+                    {{ copy.room.schedule }}
+                </UiButton>
+            </div>
         </div>
     </article>
 </template>
@@ -113,14 +118,14 @@ const emit = defineEmits<{
 <style scoped>
 .room-card {
     display: flex;
-    min-height: 168px;
+    min-height: 200px;
     flex-direction: column;
     cursor: pointer;
     border: 1px solid var(--color-border);
     border-left: 4px solid var(--color-border);
     border-radius: var(--radius-xl);
     background: var(--color-surface);
-    padding: 1rem 1.15rem 0.85rem;
+    padding: 1.1rem 1.25rem 1rem;
     transition:
         border-color 0.15s ease,
         box-shadow 0.15s ease,
@@ -171,10 +176,11 @@ const emit = defineEmits<{
 }
 
 .subnet {
-    margin: 0.55rem 0 0.45rem;
+    margin: 0.5rem 0 0.4rem;
     color: var(--color-muted);
     font-family: var(--font-mono);
-    font-size: 0.82rem;
+    font-size: 0.75rem;
+    opacity: 0.75;
 }
 
 .status-pill {
@@ -270,9 +276,18 @@ const emit = defineEmits<{
 
 .room-actions {
     display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
+    flex-direction: column;
+    gap: 0.45rem;
     margin-top: auto;
-    padding-top: 0.75rem;
+    padding-top: 0.85rem;
+}
+
+.room-actions-secondary {
+    display: flex;
+    gap: 0.45rem;
+}
+
+.room-actions-secondary .ui-btn {
+    flex: 1;
 }
 </style>

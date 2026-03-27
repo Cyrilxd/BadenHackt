@@ -515,9 +515,7 @@ async function saveRoomSchedule() {
                 <UiButton
                     type="button"
                     slim
-                    :variant="
-                        bulkToggleTargetEnabled ? 'roomUnlock' : 'roomLock'
-                    "
+                    :variant="bulkToggleTargetEnabled ? 'primary' : 'danger'"
                     :disabled="bulkToggleDisabled"
                     @click="requestToggleAll"
                 >
@@ -669,7 +667,7 @@ async function saveRoomSchedule() {
     }
 }
 
-@media (min-width: 1100px) {
+@media (min-width: 1380px) {
     .room-grid {
         grid-template-columns: repeat(3, minmax(0, 1fr));
     }

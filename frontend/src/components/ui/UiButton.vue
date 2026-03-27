@@ -5,6 +5,7 @@ withDefaults(
       | 'primary'
       | 'light'
       | 'ghost'
+      | 'danger'
       | 'roomLock'
       | 'roomUnlock'
       | 'roomOutline'
@@ -103,6 +104,17 @@ withDefaults(
   background: var(--color-surface);
   padding: 0.5rem 0.75rem;
   font-weight: 600;
+}
+
+.ui-btn--danger {
+  border: 1px solid var(--color-danger-outline-border);
+  background: var(--color-surface);
+  color: var(--color-danger);
+}
+
+.ui-btn--danger:hover:not(:disabled) {
+  background: var(--color-error-bg);
+  border-color: var(--color-danger);
 }
 
 .ui-btn--roomLock {
