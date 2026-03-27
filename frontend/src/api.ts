@@ -1,15 +1,12 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-
 const api = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: import.meta.env.VITE_API_URL || '',
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Add token to requests
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token');
   if (token) {
@@ -17,6 +14,18 @@ api.interceptors.request.use((config) => {
   }
   return config;
 });
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.reload();
+    }
+    return Promise.reject(error);
+  }
+);
 
 export interface LoginResponse {
   access_token: string;
@@ -47,7 +56,7 @@ export const authApi = {
     const formData = new FormData();
     formData.append('username', username);
     formData.append('password', password);
-    
+
     const response = await api.post<LoginResponse>('/api/login', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
@@ -60,8 +69,8 @@ export const roomsApi = {
     const response = await api.get<Room[]>('/api/rooms');
     return response.data;
   },
-  
-  toggleInternet: async (roomId: number, enable: boolean): Promise<{ success: boolean; internet_enabled: boolean }> => {
+
+  toggleInternet: async (roomId: number, enable: boolean) => {
     const response = await api.post(`/api/rooms/${roomId}/toggle`, null, {
       params: { enable },
     });
@@ -75,12 +84,16 @@ export const whitelistsApi = {
     const response = await api.get<Whitelist[]>('/api/whitelists', { params });
     return response.data;
   },
-  
+
   createWhitelist: async (name: string, urls: string[], roomId: number): Promise<Whitelist> => {
-    const response = await api.post<Whitelist>('/api/whitelists', { name, urls, room_id: roomId });
+    const response = await api.post<Whitelist>('/api/whitelists', {
+      name,
+      urls,
+      room_id: roomId,
+    });
     return response.data;
   },
-  
+
   deleteWhitelist: async (id: number): Promise<void> => {
     await api.delete(`/api/whitelists/${id}`);
   },

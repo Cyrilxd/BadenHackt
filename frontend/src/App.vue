@@ -9,10 +9,15 @@ const user = ref<{ username: string; role: string } | null>(null)
 onMounted(() => {
   const token = localStorage.getItem('token')
   const userData = localStorage.getItem('user')
-  
+
   if (token && userData) {
-    isAuthenticated.value = true
-    user.value = JSON.parse(userData)
+    try {
+      user.value = JSON.parse(userData)
+      isAuthenticated.value = true
+    } catch {
+      localStorage.removeItem('token')
+      localStorage.removeItem('user')
+    }
   }
 })
 
@@ -45,7 +50,7 @@ function handleLogout() {
 
     <main class="main">
       <Login v-if="!isAuthenticated" @login="handleLogin" />
-      <Dashboard v-else :user="user" />
+      <Dashboard v-else />
     </main>
 
     <footer class="footer">

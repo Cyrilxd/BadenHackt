@@ -80,21 +80,21 @@ async function handleSubmit() {
 }
 
 .login-card {
-  background: white;
-  border-radius: 20px;
+  background: var(--bg);
+  border-radius: var(--radius-lg);
   padding: 3rem;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
 }
 
 h2 {
   margin: 0 0 0.5rem 0;
-  color: #333;
+  color: var(--text);
   font-size: 2rem;
   text-align: center;
 }
 
 .subtitle {
-  color: #666;
+  color: var(--text-light);
   text-align: center;
   margin-bottom: 2rem;
 }
@@ -106,15 +106,15 @@ h2 {
 label {
   display: block;
   margin-bottom: 0.5rem;
-  color: #333;
+  color: var(--text);
   font-weight: 600;
 }
 
 input {
   width: 100%;
   padding: 0.75rem;
-  border: 2px solid #e0e0e0;
-  border-radius: 8px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
   font-size: 1rem;
   transition: border-color 0.3s;
   box-sizing: border-box;
@@ -122,14 +122,14 @@ input {
 
 input:focus {
   outline: none;
-  border-color: #667eea;
+  border-color: var(--primary);
 }
 
 .error {
   background: #fee;
   color: #c00;
   padding: 0.75rem;
-  border-radius: 8px;
+  border-radius: var(--radius);
   margin-bottom: 1rem;
   text-align: center;
 }
@@ -137,10 +137,10 @@ input:focus {
 .btn-primary {
   width: 100%;
   padding: 1rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
   color: white;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius);
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
@@ -159,17 +159,17 @@ input:focus {
 .info-box {
   margin-top: 2rem;
   padding: 1rem;
-  background: #f8f9fa;
-  border-radius: 8px;
+  background: var(--bg-light);
+  border-radius: var(--radius);
   font-size: 0.875rem;
   text-align: center;
 }
 
 .info-box code {
-  background: #e0e0e0;
+  background: var(--border);
   padding: 0.2rem 0.4rem;
   border-radius: 4px;
-  font-family: monospace;
+  font-family: var(--mono);
 }
 
 .info-box p {

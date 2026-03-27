@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   backend:
     build: ./backend
@@ -8,7 +6,6 @@ services:
       - "8000:8000"
     volumes:
       - ./data:/app/data
-    privileged: true
     environment:
       - PYTHONUNBUFFERED=1
       - SECRET_KEY=${SECRET_KEY:-hackathon-2026-change-in-production}

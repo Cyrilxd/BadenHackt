@@ -2,10 +2,6 @@
 import { ref, onMounted, computed } from 'vue'
 import { roomsApi, whitelistsApi, type Room, type Whitelist } from '../api'
 
-defineProps<{
-  user: { username: string; role?: string } | null
-}>()
-
 const rooms = ref<Room[]>([])
 const whitelists = ref<Whitelist[]>([])
 const selectedRoomId = ref<number | null>(null)
@@ -65,7 +61,10 @@ async function createWhitelist() {
   error.value = ''
 
   try {
-    const urls = newWhitelistUrls.value.split('\n').filter(url => url.trim())
+    const urls = newWhitelistUrls.value
+      .split('\n')
+      .map(url => url.trim())
+      .filter(Boolean)
     const whitelist = await whitelistsApi.createWhitelist(
       newWhitelistName.value,
       urls,
@@ -204,11 +203,11 @@ async function deleteWhitelist(id: number) {
 }
 
 .section {
-  background: white;
-  border-radius: 20px;
+  background: var(--bg);
+  border-radius: var(--radius-lg);
   padding: 2rem;
   margin-bottom: 2rem;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow);
 }
 
 .section-header {
@@ -220,14 +219,14 @@ async function deleteWhitelist(id: number) {
 
 h2 {
   margin: 0 0 1.5rem 0;
-  color: #333;
+  color: var(--text);
 }
 
 .error-banner {
   background: #fee;
   color: #c00;
   padding: 1rem;
-  border-radius: 8px;
+  border-radius: var(--radius);
   margin-bottom: 1rem;
   text-align: center;
 }
@@ -239,7 +238,7 @@ h2 {
 }
 
 .room-card {
-  border: 2px solid #e0e0e0;
+  border: 2px solid var(--border);
   border-radius: 12px;
   padding: 1.5rem;
   transition: all 0.3s;
@@ -247,12 +246,12 @@ h2 {
 }
 
 .room-card:hover {
-  border-color: #667eea;
-  box-shadow: 0 4px 20px rgba(102, 126, 234, 0.2);
+  border-color: var(--primary);
+  box-shadow: var(--shadow-hover);
 }
 
 .room-card.selected {
-  border-color: #667eea;
+  border-color: var(--primary);
   background: #f8f9ff;
   box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3);
 }
@@ -266,14 +265,14 @@ h2 {
 
 .room-header h3 {
   margin: 0;
-  color: #333;
+  color: var(--text);
   font-size: 1.2rem;
 }
 
 .subnet {
-  color: #666;
+  color: var(--text-light);
   font-size: 0.75rem;
-  background: #f0f0f0;
+  background: var(--bg-light);
   padding: 0.25rem 0.5rem;
   border-radius: 4px;
   font-weight: 600;
@@ -305,7 +304,7 @@ h2 {
   width: 100%;
   padding: 0.875rem;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius);
   font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
@@ -313,12 +312,12 @@ h2 {
 }
 
 .btn-danger {
-  background: linear-gradient(135deg, #ee0979 0%, #ff6a00 100%);
+  background: linear-gradient(135deg, var(--danger) 0%, var(--danger-light) 100%);
   color: white;
 }
 
 .btn-success {
-  background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+  background: linear-gradient(135deg, var(--success) 0%, var(--success-light) 100%);
   color: white;
 }
 
@@ -329,34 +328,35 @@ h2 {
 
 .btn-add {
   padding: 0.75rem 1.5rem;
-  background: #667eea;
+  background: var(--primary);
   color: white;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius);
   cursor: pointer;
   font-weight: 600;
   transition: all 0.3s;
 }
 
 .btn-add:hover {
-  background: #5568d3;
+  background: var(--primary-dark);
   transform: translateY(-2px);
 }
 
 .whitelist-form {
-  background: #f8f9fa;
+  background: var(--bg-light);
   padding: 1.5rem;
-  border-radius: 8px;
+  border-radius: var(--radius);
   margin-bottom: 1.5rem;
 }
 
 .input, .textarea {
   width: 100%;
   padding: 0.75rem;
-  border: 2px solid #e0e0e0;
-  border-radius: 8px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
   font-size: 1rem;
   margin-bottom: 1rem;
+  box-sizing: border-box;
 }
 
 .textarea {
@@ -366,10 +366,10 @@ h2 {
 
 .btn-primary {
   padding: 0.75rem 1.5rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
   color: white;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius);
   cursor: pointer;
   font-weight: 600;
   transition: all 0.3s;
@@ -381,18 +381,18 @@ h2 {
 
 .empty-state {
   text-align: center;
-  color: #999;
+  color: var(--text-muted);
   padding: 2rem;
 }
 
 .info-box {
-  background: white;
-  border-radius: 20px;
+  background: var(--bg);
+  border-radius: var(--radius-lg);
   padding: 3rem;
   text-align: center;
-  color: #666;
+  color: var(--text-light);
   font-size: 1.1rem;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow);
 }
 
 .whitelist-grid {
@@ -402,15 +402,15 @@ h2 {
 }
 
 .whitelist-card {
-  border: 2px solid #e0e0e0;
-  border-radius: 8px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
   padding: 1rem;
   transition: all 0.3s;
 }
 
 .whitelist-card:hover {
-  border-color: #667eea;
-  box-shadow: 0 2px 10px rgba(102, 126, 234, 0.2);
+  border-color: var(--primary);
+  box-shadow: var(--shadow-hover);
 }
 
 .whitelist-header {
@@ -422,7 +422,7 @@ h2 {
 
 .whitelist-header h4 {
   margin: 0;
-  color: #333;
+  color: var(--text);
 }
 
 .btn-delete {
@@ -446,15 +446,15 @@ h2 {
 
 .url-list li {
   padding: 0.25rem 0;
-  color: #666;
+  color: var(--text-light);
   font-size: 0.875rem;
-  font-family: monospace;
+  font-family: var(--mono);
   word-break: break-all;
 }
 
 .loading {
   text-align: center;
   padding: 2rem;
-  color: #999;
+  color: var(--text-muted);
 }
 </style>

@@ -1,6 +1,5 @@
 """Initialize database with test data for 7 rooms"""
-from sqlalchemy.orm import Session
-from .database import engine, SessionLocal, User, Room, init_db
+from .database import SessionLocal, User, Room, init_db
 from .auth import get_password_hash
 
 ROOMS = [

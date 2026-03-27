@@ -1,7 +1,8 @@
 import os
+import hashlib
+import hmac
 from datetime import datetime, timedelta, timezone
 from jose import JWTError, jwt
-import hashlib
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
@@ -13,13 +14,13 @@ ACCESS_TOKEN_EXPIRE_HOURS = 8
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/login")
 
+
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verify password using SHA256 (simplified for demo)"""
     password_hash = hashlib.sha256(plain_password.encode()).hexdigest()
-    return password_hash == hashed_password
+    return hmac.compare_digest(password_hash, hashed_password)
+
 
 def get_password_hash(password: str) -> str:
-    """Hash password using SHA256 (simplified for demo)"""
     return hashlib.sha256(password.encode()).hexdigest()
 
 def create_access_token(data: dict):
