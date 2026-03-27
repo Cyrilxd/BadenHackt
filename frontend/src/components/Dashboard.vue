@@ -1,13 +1,51 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { roomsApi, whitelistsApi, type Room, type Whitelist } from '../api'
+import { copy } from '../constants/copy'
+import DashboardPageTitle from './dashboard/DashboardPageTitle.vue'
+import RoomCard from './dashboard/RoomCard.vue'
+import WhitelistModal from './dashboard/WhitelistModal.vue'
+import UiToast from './ui/UiToast.vue'
+import UiConfirm from './ui/UiConfirm.vue'
 
 const rooms = ref<Room[]>([])
 const whitelists = ref<Whitelist[]>([])
 const selectedRoomId = ref<number | null>(null)
-const loading = ref(false)
+const fetching = ref(false)
+const loadingRoomId = ref<number | null>(null)
+const loadingModal = ref(false)
 const error = ref('')
 const modalVisible = ref(false)
+
+// Toast
+const toast = ref<{ message: string; type: 'success' | 'error' } | null>(null)
+let _toastTimer: ReturnType<typeof setTimeout> | null = null
+
+function showToast(message: string, type: 'success' | 'error' = 'success') {
+  if (_toastTimer) clearTimeout(_toastTimer)
+  toast.value = { message, type }
+  _toastTimer = setTimeout(() => { toast.value = null }, 3000)
+}
+
+// Confirm-Dialog
+interface ConfirmOptions {
+  title: string
+  message: string
+  danger?: boolean
+  onConfirm: () => void
+}
+const confirmDialog = ref<ConfirmOptions | null>(null)
+
+function showConfirm(options: ConfirmOptions) {
+  confirmDialog.value = options
+}
+function handleConfirmOk() {
+  confirmDialog.value?.onConfirm()
+  confirmDialog.value = null
+}
+function handleConfirmCancel() {
+  confirmDialog.value = null
+}
 
 const showWhitelistForm = ref(false)
 const newWhitelistName = ref('')
@@ -33,30 +71,41 @@ onMounted(async () => {
 })
 
 async function loadData() {
-  loading.value = true
+  fetching.value = true
   error.value = ''
   try {
     rooms.value = await roomsApi.getRooms()
     whitelists.value = await whitelistsApi.getWhitelists()
-  } catch (err: any) {
-    error.value = 'Fehler beim Laden der Daten'
+  } catch {
+    error.value = copy.dashboard.loadError
   } finally {
-    loading.value = false
+    fetching.value = false
   }
 }
 
+function requestToggle(room: Room) {
+  const willEnable = !room.internet_enabled
+  showConfirm({
+    title: willEnable ? copy.confirm.toggleOnTitle : copy.confirm.toggleOffTitle,
+    message: `Alle Geräte in «${room.name}» ${willEnable ? copy.confirm.toggleOnBody : copy.confirm.toggleOffBody}`,
+    danger: !willEnable,
+    onConfirm: () => toggleInternet(room),
+  })
+}
+
 async function toggleInternet(room: Room) {
-  loading.value = true
+  loadingRoomId.value = room.id
   error.value = ''
 
   try {
     const newState = !room.internet_enabled
     await roomsApi.toggleInternet(room.id, newState)
     room.internet_enabled = newState
-  } catch (err: any) {
-    error.value = 'Fehler beim Umschalten'
+    showToast(newState ? copy.toast.toggleOn : copy.toast.toggleOff)
+  } catch {
+    error.value = copy.dashboard.toggleError
   } finally {
-    loading.value = false
+    loadingRoomId.value = null
   }
 }
 
@@ -92,27 +141,27 @@ function handleRoomCardClick(room: Room) {
 
 async function createWhitelist() {
   if (!selectedRoomId.value) {
-    error.value = 'Bitte zuerst ein Zimmer auswählen'
+    error.value = copy.dashboard.selectRoomFirst
     return
   }
 
   const cleanedName = newWhitelistName.value.trim()
   const urls = newWhitelistUrls.value
     .split('\n')
-    .map(url => url.trim())
+    .map(u => u.trim())
     .filter(Boolean)
 
   if (!cleanedName) {
-    error.value = 'Bitte einen Namen für die Whitelist eingeben'
+    error.value = copy.dashboard.whitelistNameMissing
     return
   }
 
   if (urls.length === 0) {
-    error.value = 'Bitte mindestens eine URL eingeben'
+    error.value = copy.dashboard.whitelistUrlsMissing
     return
   }
 
-  loading.value = true
+  loadingModal.value = true
   error.value = ''
 
   try {
@@ -129,12 +178,12 @@ async function createWhitelist() {
     newWhitelistUrls.value = ''
     newWhitelistIsActive.value = true
     showWhitelistForm.value = false
+    showToast(copy.toast.whitelistCreated)
   } catch (err: any) {
     error.value =
-      err?.response?.data?.detail ||
-      'Fehler beim Erstellen der Whitelist'
+      err?.response?.data?.detail || copy.dashboard.whitelistCreateError
   } finally {
-    loading.value = false
+    loadingModal.value = false
   }
 }
 
@@ -156,27 +205,27 @@ function cancelEditWhitelist() {
 
 async function updateWhitelist() {
   if (editingWhitelistId.value === null || selectedRoomId.value === null) {
-    error.value = 'Keine Whitelist oder kein Zimmer ausgewählt'
+    error.value = copy.dashboard.noSelection
     return
   }
 
   const cleanedName = editWhitelistName.value.trim()
   const urls = editWhitelistUrls.value
     .split('\n')
-    .map(url => url.trim())
+    .map(u => u.trim())
     .filter(Boolean)
 
   if (!cleanedName) {
-    error.value = 'Bitte einen Namen für die Whitelist eingeben'
+    error.value = copy.dashboard.whitelistNameMissing
     return
   }
 
   if (urls.length === 0) {
-    error.value = 'Bitte mindestens eine URL eingeben'
+    error.value = copy.dashboard.whitelistUrlsMissing
     return
   }
 
-  loading.value = true
+  loadingModal.value = true
   error.value = ''
 
   try {
@@ -194,15 +243,16 @@ async function updateWhitelist() {
     }
 
     cancelEditWhitelist()
+    showToast(copy.toast.whitelistUpdated)
   } catch (err: any) {
     error.value =
-      err?.response?.data?.detail ||
-      'Fehler beim Aktualisieren der Whitelist'
+      err?.response?.data?.detail || copy.dashboard.whitelistUpdateError
   } finally {
-    loading.value = false
+    loadingModal.value = false
   }
 }
 
+<<<<<<< HEAD
 async function toggleWhitelistActive(wl: Whitelist) {
   loading.value = true
   error.value = ''
@@ -232,8 +282,19 @@ async function toggleWhitelistActive(wl: Whitelist) {
 
 async function deleteWhitelist(id: number) {
   if (!confirm('Whitelist wirklich löschen?')) return
+=======
+function requestDelete(id: number) {
+  showConfirm({
+    title: copy.confirm.deleteTitle,
+    message: copy.confirm.deleteBody,
+    danger: true,
+    onConfirm: () => doDeleteWhitelist(id),
+  })
+}
+>>>>>>> d2e4f3eee608dd6dc5cb2bf45e32f7ab129a9166
 
-  loading.value = true
+async function doDeleteWhitelist(id: number) {
+  loadingModal.value = true
   error.value = ''
 
   try {
@@ -243,89 +304,66 @@ async function deleteWhitelist(id: number) {
     if (editingWhitelistId.value === id) {
       cancelEditWhitelist()
     }
+    showToast(copy.toast.whitelistDeleted)
   } catch (err: any) {
-    error.value =
-      err?.response?.data?.detail ||
-      'Fehler beim Löschen'
+    error.value = err?.response?.data?.detail || copy.dashboard.whitelistDeleteError
   } finally {
-    loading.value = false
+    loadingModal.value = false
   }
 }
 </script>
 
 <template>
   <div class="dashboard">
-    <div class="dashboard-header">
-      <div>
-        <p class="dashboard-eyebrow">Übersicht</p>
-        <h2>Zimmersteuerung</h2>
-      </div>
-      <img src="/zB_Logo.png" alt="zB Logo" class="header-logo" />
-    </div>
+    <DashboardPageTitle
+      :eyebrow="copy.dashboard.eyebrowOverview"
+      :title="copy.dashboard.titleRooms"
+    />
 
     <p v-if="error" class="error-banner">{{ error }}</p>
 
-    <div v-if="loading && rooms.length === 0" class="loading">Lädt Daten...</div>
+    <div v-if="fetching && rooms.length === 0" class="loading">
+      {{ copy.dashboard.loading }}
+    </div>
 
     <section v-else class="room-grid">
-      <article
+      <RoomCard
         v-for="room in rooms"
         :key="room.id"
-        class="room-card"
-        :class="{
-          'room-card-selected': selectedRoomId === room.id,
-          'room-card-disabled': !room.internet_enabled
-        }"
-        @click="handleRoomCardClick(room)"
-      >
-        <header class="room-head">
-          <h3>{{ room.name }}</h3>
-          <span class="vlan-badge">VLAN {{ room.vlan_id }}</span>
-        </header>
-
-        <p class="subnet">{{ room.subnet }}</p>
-
-        <p class="status-pill" :class="room.internet_enabled ? 'status-on' : 'status-off'">
-          {{ room.internet_enabled ? 'Internet aktiv' : 'Internet gesperrt' }}
-        </p>
-
-        <div class="room-actions">
-          <button
-            class="btn-toggle"
-            :class="room.internet_enabled ? 'btn-disable' : 'btn-enable'"
-            :disabled="loading"
-            @click.stop="toggleInternet(room)"
-          >
-            {{ room.internet_enabled ? 'Sperren' : 'Freigeben' }}
-          </button>
-
-          <button
-            class="btn-manage"
-            :disabled="loading"
-            @click.stop="openWhitelistModal(room.id, !room.internet_enabled)"
-          >
-            {{ room.internet_enabled ? 'Whitelist verwalten' : 'Whitelist direkt erfassen' }}
-          </button>
-        </div>
-      </article>
+        :room="room"
+        :selected="selectedRoomId === room.id"
+        :loading="loadingRoomId === room.id"
+        @card-click="handleRoomCardClick"
+        @toggle="requestToggle"
+        @manage="(r) => openWhitelistModal(r.id, !r.internet_enabled)"
+      />
     </section>
 
-    <div v-if="modalVisible" class="modal-backdrop" @click.self="closeWhitelistModal">
-      <section class="modal-card">
-        <header class="modal-header">
-          <div>
-            <p class="dashboard-eyebrow">Whitelist</p>
-            <h3>{{ selectedRoom?.name }}</h3>
-          </div>
-          <button class="btn-close" @click="closeWhitelistModal">Schliessen</button>
-        </header>
+    <WhitelistModal
+      :open="modalVisible"
+      :room-title="selectedRoom?.name ?? ''"
+      :lists="selectedRoomWhitelists"
+      :loading="loadingModal"
+      :editing-id="editingWhitelistId"
+      v-model:new-name="newWhitelistName"
+      v-model:new-urls="newWhitelistUrls"
+      v-model:show-form="showWhitelistForm"
+      v-model:edit-name="editWhitelistName"
+      v-model:edit-urls="editWhitelistUrls"
+      @close="closeWhitelistModal"
+      @toggleForm="showWhitelistForm = !showWhitelistForm"
+      @create="createWhitelist"
+      @saveWhitelist="updateWhitelist"
+      @cancelEdit="cancelEditWhitelist"
+      @delete="requestDelete"
+      @edit="startEditWhitelist"
+    />
 
-        <div class="modal-toolbar">
-          <button class="btn-primary" @click="showWhitelistForm = !showWhitelistForm">
-            {{ showWhitelistForm ? 'Formular ausblenden' : 'Neue Whitelist' }}
-          </button>
-        </div>
+    <Transition name="toast">
+      <UiToast v-if="toast" :message="toast.message" :type="toast.type" />
+    </Transition>
 
+<<<<<<< HEAD
         <div v-if="showWhitelistForm" class="editor-box">
           <input
             v-model="newWhitelistName"
@@ -403,68 +441,51 @@ async function deleteWhitelist(id: number) {
         </div>
       </section>
     </div>
+=======
+    <UiConfirm
+      v-if="confirmDialog"
+      :title="confirmDialog.title"
+      :message="confirmDialog.message"
+      :confirm-label="copy.confirm.ok"
+      :cancel-label="copy.confirm.cancel"
+      :danger="confirmDialog.danger"
+      @confirm="handleConfirmOk"
+      @cancel="handleConfirmCancel"
+    />
+>>>>>>> d2e4f3eee608dd6dc5cb2bf45e32f7ab129a9166
   </div>
 </template>
 
 <style scoped>
 .dashboard {
-  width: min(1200px, 100%);
+  width: min(var(--layout-dashboard-max), 100%);
   margin: 0 auto;
   padding: 1.5rem;
 }
 
-.dashboard-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 1.2rem;
-}
-
-.dashboard-eyebrow {
-  margin: 0;
-  color: var(--color-muted);
-  font-size: 0.8rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.dashboard-header h2 {
-  margin: 0.25rem 0 0;
-  color: var(--color-text);
-  font-size: 1.5rem;
-}
-
-.header-logo {
-  width: 72px;
-  height: auto;
-}
-
 .error-banner {
-  border: 1px solid #f0c8c8;
-  border-radius: 10px;
-  background: #fff5f5;
+  border: 1px solid var(--color-error-banner-border);
+  border-radius: var(--radius-md);
+  background: var(--color-error-banner-bg);
   padding: 0.8rem;
   margin-bottom: 1rem;
-  color: #a03333;
+  color: var(--color-error-banner-text);
   font-size: 0.9rem;
 }
 
 .room-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  gap: 1rem;
+  gap: 1.25rem;
+  grid-template-columns: 1fr;
 }
 
-.room-card {
-  border: 1px solid var(--color-border);
-  border-radius: 16px;
-  background: #fff;
-  padding: 1rem;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-  cursor: pointer;
+@media (min-width: 700px) {
+  .room-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
+<<<<<<< HEAD
 .room-card:hover {
   border-color: var(--color-primary);
   box-shadow: 0 12px 26px rgba(44, 100, 36, 0.1);
@@ -734,17 +755,31 @@ async function deleteWhitelist(id: number) {
   margin-bottom: 0.2rem;
   font-family: var(--mono);
   word-break: break-all;
+=======
+@media (min-width: 1100px) {
+  .room-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+>>>>>>> d2e4f3eee608dd6dc5cb2bf45e32f7ab129a9166
 }
 
 .loading {
   border: 1px dashed var(--color-border);
-  border-radius: 12px;
-  background: #fff;
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
   padding: 1rem;
   color: var(--color-muted);
 }
 
-.editor-inline {
-  margin-bottom: 0;
+/* Toast slide-in from bottom-right */
+.toast-enter-active,
+.toast-leave-active {
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+
+.toast-enter-from,
+.toast-leave-to {
+  opacity: 0;
+  transform: translateY(0.5rem);
 }
 </style>

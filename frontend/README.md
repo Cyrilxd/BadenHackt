@@ -1,5 +1,18 @@
-# Vue 3 + TypeScript + Vite
+# BadenHackt Frontend
 
-This template should help get you started developing with Vue 3 and TypeScript in Vite. The template uses Vue 3 `<script setup>` SFCs, check out the [script setup docs](https://v3.vuejs.org/api/sfc-script-setup.html#sfc-script-setup) to learn more.
+Vue 3, TypeScript, Vite. **Kein** mitgelieferter Tailwind-Plus-/Vendor-Block im Repository – nur die tatsächlich genutzten Komponenten.
 
-Learn more about the recommended Project Setup and IDE Support in the [Vue Docs TypeScript Guide](https://vuejs.org/guide/typescript/overview.html#project-setup).
+## Struktur (Kurz)
+
+| Pfad | Inhalt |
+|------|--------|
+| `src/styles/tokens.css` | Farben, Radii, Schatten, Layout-Breiten (`--color-*`, `--layout-*`) |
+| `src/styles/base.css` | Import von `tokens.css`, Reset, `body` |
+| `src/constants/copy.ts` | Deutsche UI-Strings |
+| `src/components/ui/` | `UiButton`, `UiModal` |
+| `src/components/layout/` | `AppTopBar` |
+| `src/components/dashboard/` | `RoomCard`, `DashboardPageTitle`, `WhitelistModal` |
+
+Build: `npm run build` · Dev: `npm run dev`
+
+Siehe Root-`project.md` für Gesamtprojekt und Changelog.

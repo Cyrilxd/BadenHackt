@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { authApi } from '../api'
+import { copy } from '../constants/copy'
+import UiButton from './ui/UiButton.vue'
 
 const emit = defineEmits<{
   login: [data: { token: string; user: { username: string; role: string } }]
@@ -19,7 +21,7 @@ async function handleSubmit() {
     const response = await authApi.login(username.value, password.value)
     emit('login', { token: response.access_token, user: response.user })
   } catch (err: any) {
-    error.value = err.response?.data?.detail || 'Login fehlgeschlagen'
+    error.value = err.response?.data?.detail || copy.login.errorFallback
   } finally {
     loading.value = false
   }
@@ -30,48 +32,44 @@ async function handleSubmit() {
   <div class="login-layout">
     <section class="login-card">
       <div class="login-brand">
-        <img src="/zB_Logo.png" alt="zB Logo" class="logo" />
+        <img src="/zB_Logo.png" alt="" class="logo" width="150" height="60" />
       </div>
 
       <div class="login-headline">
-        <h1>Anmeldung</h1>
-        <p>Internetzugang für Schulzimmer zentral steuern</p>
+        <h1>{{ copy.login.title }}</h1>
+        <p>{{ copy.login.subtitle }}</p>
       </div>
 
       <form class="login-form" @submit.prevent="handleSubmit">
-        <label for="username">Benutzername</label>
+        <label for="username">{{ copy.login.usernameLabel }}</label>
         <input
           id="username"
           v-model="username"
           type="text"
-          placeholder="lehrer"
+          :placeholder="copy.login.usernamePlaceholder"
           autocomplete="username"
           required
           autofocus
         />
 
-        <label for="password">Passwort</label>
+        <label for="password">{{ copy.login.passwordLabel }}</label>
         <input
           id="password"
           v-model="password"
           type="password"
-          placeholder="••••••••"
+          :placeholder="copy.login.passwordPlaceholder"
           autocomplete="current-password"
           required
         />
 
         <p v-if="error" class="error-alert">{{ error }}</p>
 
-        <button type="submit" :disabled="loading" class="btn-primary">
-          {{ loading ? 'Anmeldung läuft...' : 'Anmelden' }}
-        </button>
+        <div class="submit-row">
+          <UiButton type="submit" variant="primary" block comfortable :disabled="loading">
+            {{ loading ? copy.login.submitting : copy.login.submit }}
+          </UiButton>
+        </div>
       </form>
-
-      <div class="credentials-box">
-        <p class="credentials-title">Test-Zugänge</p>
-        <p>Benutzer: <code>lehrer</code>, <code>mueller</code>, <code>schmidt</code></p>
-        <p>Passwort: <code>admin123</code></p>
-      </div>
     </section>
   </div>
 </template>
@@ -84,12 +82,12 @@ async function handleSubmit() {
 }
 
 .login-card {
-  width: min(460px, 100%);
+  width: min(var(--layout-login-card-max), 100%);
   border: 1px solid var(--color-border);
-  border-radius: 18px;
-  background: #fff;
+  border-radius: var(--radius-2xl);
+  background: var(--color-surface);
   padding: 2rem;
-  box-shadow: 0 18px 40px rgba(38, 89, 31, 0.09);
+  box-shadow: var(--shadow-login);
 }
 
 .login-brand {
@@ -127,79 +125,36 @@ async function handleSubmit() {
 }
 
 label {
+  margin-top: 0.4rem;
   color: var(--color-text);
   font-size: 0.87rem;
   font-weight: 600;
-  margin-top: 0.4rem;
 }
 
 input {
   border: 1px solid var(--color-border);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   padding: 0.7rem 0.8rem;
   font-size: 0.95rem;
 }
 
 input:focus {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(101, 173, 65, 0.15);
+  box-shadow: var(--focus-ring);
+  outline: none;
 }
 
 .error-alert {
   margin: 0.7rem 0 0.2rem;
-  border: 1px solid #f3c8c8;
-  border-radius: 10px;
-  background: #fff4f4;
+  border: 1px solid var(--color-error-border);
+  border-radius: var(--radius-md);
+  background: var(--color-error-bg);
   padding: 0.6rem 0.75rem;
-  color: #9f2a2a;
+  color: var(--color-error-text);
   font-size: 0.86rem;
 }
 
-.btn-primary {
+.submit-row {
   margin-top: 0.6rem;
-  border: 0;
-  border-radius: 10px;
-  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-strong) 100%);
-  padding: 0.75rem 0.9rem;
-  color: #fff;
-  font-size: 0.95rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.btn-primary:hover:not(:disabled) {
-  filter: brightness(1.03);
-}
-
-.btn-primary:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-}
-
-.credentials-box {
-  margin-top: 1.5rem;
-  border: 1px solid var(--color-border);
-  border-radius: 12px;
-  background: #f8fcf6;
-  padding: 0.9rem 1rem;
-  color: var(--color-muted);
-  font-size: 0.84rem;
-}
-
-.credentials-title {
-  margin-bottom: 0.35rem;
-  color: var(--color-text);
-  font-weight: 700;
-}
-
-.credentials-box p {
-  margin: 0.22rem 0;
-}
-
-code {
-  border-radius: 6px;
-  background: #edf3ea;
-  padding: 0.1rem 0.35rem;
-  font-size: 0.8rem;
 }
 </style>

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import AppTopBar from './components/layout/AppTopBar.vue'
 import Login from './components/Login.vue'
 import Dashboard from './components/Dashboard.vue'
 
@@ -40,22 +41,7 @@ function handleLogout() {
 
 <template>
   <div class="app-shell">
-    <header v-if="isAuthenticated" class="topbar">
-      <div class="topbar-inner">
-        <div class="brand">
-          <img src="/zB_Logo.png" alt="zB Logo" class="brand-logo" />
-          <div class="brand-copy">
-            <p class="brand-title">Internet Steuerung</p>
-            <p class="brand-subtitle">Schulzimmer VLAN Verwaltung</p>
-          </div>
-        </div>
-
-        <div class="session">
-          <span class="session-user">{{ user?.username }}</span>
-          <button class="btn-logout" @click="handleLogout">Abmelden</button>
-        </div>
-      </div>
-    </header>
+    <AppTopBar v-if="isAuthenticated" :username="user?.username" @logout="handleLogout" />
 
     <main class="app-main" :class="{ 'app-main-auth': isAuthenticated }">
       <Login v-if="!isAuthenticated" @login="handleLogin" />
@@ -67,75 +53,12 @@ function handleLogout() {
 <style scoped>
 .app-shell {
   min-height: 100vh;
-  background: linear-gradient(160deg, #f3f9f1 0%, #ecf8e8 48%, #e4f4de 100%);
-}
-
-.topbar {
-  border-bottom: 1px solid var(--color-border);
-  background: rgba(255, 255, 255, 0.88);
-  backdrop-filter: blur(6px);
-}
-
-.topbar-inner {
-  margin: 0 auto;
-  display: flex;
-  max-width: 1200px;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  padding: 1rem 1.5rem;
-}
-
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.brand-logo {
-  width: 66px;
-  height: auto;
-}
-
-.brand-title {
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--color-text);
-}
-
-.brand-subtitle {
-  font-size: 0.8rem;
-  color: var(--color-muted);
-}
-
-.session {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.session-user {
-  border: 1px solid var(--color-border);
-  border-radius: 999px;
-  background: #fff;
-  padding: 0.4rem 0.8rem;
-  font-size: 0.85rem;
-  color: var(--color-muted);
-}
-
-.btn-logout {
-  border: 0;
-  border-radius: 10px;
-  background: var(--color-danger);
-  padding: 0.5rem 0.9rem;
-  color: #fff;
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.btn-logout:hover {
-  background: var(--color-danger-strong);
+  background: linear-gradient(
+    160deg,
+    var(--color-page-bg-1) 0%,
+    var(--color-page-bg-2) 48%,
+    var(--color-page-bg-3) 100%
+  );
 }
 
 .app-main {

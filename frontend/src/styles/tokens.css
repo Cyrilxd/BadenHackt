@@ -1,0 +1,68 @@
+/**
+ * Design-Tokens – zentrale Werte, keine Komponentenlogik.
+ * Farben, Abstände, Schatten: hier pflegen, in Vue nur var(--…) nutzen.
+ */
+:root {
+  /* Brand */
+  --color-primary: #65ad41;
+  --color-primary-strong: #4f9631;
+  --color-text: #203125;
+  --color-muted: #5b6a60;
+  --color-border: #d8e4d4;
+  --color-surface: #ffffff;
+  --color-surface-muted: #f8fcf6;
+  --color-code-bg: #edf3ea;
+
+  /* Status */
+  --color-status-on-bg: #e7f7e3;
+  --color-status-on-fg: #2f7c22;
+  --color-status-on-border: #c5e8bc;
+  --color-status-on-hover-bg: #d8f0d0;
+  --color-status-off-bg: #faecec;
+  --color-status-off-fg: #a13333;
+
+  /* Fehler / destruktiv (nur wo nötig, z. B. Löschen) */
+  --color-danger: #cc4f4f;
+  --color-danger-strong: #b13f3f;
+  --color-error-text: #9f2a2a;
+  --color-error-bg: #fff4f4;
+  --color-error-border: #f3c8c8;
+  --color-error-banner-text: #a03333;
+  --color-error-banner-bg: #fff5f5;
+  --color-error-banner-border: #f0c8c8;
+  --color-danger-outline-border: #f2d3d3;
+  --color-danger-outline-text: #9e3c3c;
+
+  /* Layout / App */
+  --color-page-bg-1: #f3f9f1;
+  --color-page-bg-2: #ecf8e8;
+  --color-page-bg-3: #e4f4de;
+  --color-topbar-bg: rgba(255, 255, 255, 0.88);
+  --color-modal-border: #dbead6;
+  --color-modal-backdrop: rgba(20, 26, 18, 0.4);
+  --color-room-disabled-border: #e3d4d4;
+  --color-room-disabled-bg: #fffdfd;
+
+  /* Schatten */
+  --shadow-login: 0 18px 40px rgba(38, 89, 31, 0.09);
+  --shadow-room-hover: 0 12px 26px rgba(44, 100, 36, 0.1);
+  --focus-ring: 0 0 0 3px rgba(101, 173, 65, 0.15);
+
+  /* Radii */
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 18px;
+  --radius-pill: 999px;
+
+  /* Layout-Breiten */
+  --layout-topbar-max: 1200px;
+  --layout-dashboard-max: 1280px;
+  --layout-login-card-max: 460px;
+  --layout-modal-max: 840px;
+
+  /* Typo */
+  --font-sans: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
