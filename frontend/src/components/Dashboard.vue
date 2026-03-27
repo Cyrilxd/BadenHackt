@@ -3,7 +3,7 @@ import { ref, onMounted, computed } from 'vue'
 import { roomsApi, whitelistsApi, type Room, type Whitelist } from '../api'
 
 defineProps<{
-  user: { username: string; room_name?: string } | null
+  user: { username: string; role?: string } | null
 }>()
 
 const rooms = ref<Room[]>([])

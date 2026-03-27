@@ -63,17 +63,18 @@ class FirewallManager:
     
     @staticmethod
     def get_vlan_status(subnet: str) -> bool:
-        """Check if VLAN is currently blocked"""
+        """Check if VLAN is currently blocked. Returns True if internet is enabled."""
         try:
             list_cmd = ["nft", "list", "chain", "inet", "filter", "forward"]
             result = subprocess.run(list_cmd, capture_output=True, text=True)
             
             if result.returncode == 0:
-                # Check if subnet is in drop rules
-                is_blocked = subnet in result.stdout and 'drop' in result.stdout
-                return not is_blocked  # Return True if internet is enabled (not blocked)
+                for line in result.stdout.split('\n'):
+                    if subnet in line and 'drop' in line:
+                        return False
+                return True
             
-            return True  # Default to enabled if can't determine
+            return True
         except Exception as e:
             logger.error(f"Error checking VLAN status: {e}")
             return True

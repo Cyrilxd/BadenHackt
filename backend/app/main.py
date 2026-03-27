@@ -1,3 +1,4 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,27 +10,26 @@ import logging
 from . import database, auth, firewall
 from .database import get_db, init_db, User, Room, WhitelistTemplate
 
-# Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Initialize FastAPI
-app = FastAPI(title="Internet EIN/AUS API", version="2.0.0")
 
-# CORS
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    logger.info("Database initialized")
+    yield
+
+
+app = FastAPI(title="Internet EIN/AUS API", version="2.0.0", lifespan=lifespan)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:8080", "http://localhost:5173"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# Initialize database on startup
-@app.on_event("startup")
-def startup_event():
-    init_db()
-    logger.info("Database initialized")
 
 # Pydantic models for request/response
 from pydantic import BaseModel

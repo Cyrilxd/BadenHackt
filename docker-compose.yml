@@ -8,11 +8,10 @@ services:
       - "8000:8000"
     volumes:
       - ./data:/app/data
-      - /var/run/docker.sock:/var/run/docker.sock
     privileged: true
-    network_mode: host
     environment:
       - PYTHONUNBUFFERED=1
+      - SECRET_KEY=${SECRET_KEY:-hackathon-2026-change-in-production}
     restart: unless-stopped
 
   frontend:
@@ -25,6 +24,3 @@ services:
     depends_on:
       - backend
     restart: unless-stopped
-
-volumes:
-  db-data:

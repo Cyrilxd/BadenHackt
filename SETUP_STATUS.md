@@ -21,20 +21,20 @@
 ## Projekt-Struktur
 
 ```
-/data/.openclaw/workspace/hackathon/
+BadenHackt/
 ├── backend/
-│   ├── venv/              ✅ Python venv ready
+│   ├── app/               ✅ FastAPI App (main, auth, database, firewall)
 │   ├── requirements.txt   ✅ FastAPI, SQLAlchemy, etc.
-│   └── schema.sql         ✅ DB schema
+│   ├── schema.sql         ✅ DB-Schema (Referenz)
+│   └── Dockerfile         ✅ Python 3.11-slim
 ├── frontend/
-│   ├── node_modules/      ✅ React, Vite, Axios
-│   └── package.json       ✅
-├── db/
-│   └── hackathon.db       ✅ SQLite DB initialized
-├── config/
-├── logs/
-└── SETUP_STATUS.md
-
+│   ├── src/               ✅ Vue 3 + TypeScript (App, Dashboard, Login)
+│   ├── package.json       ✅ Vite, Vue, Axios
+│   ├── nginx.conf         ✅ Reverse Proxy Config
+│   └── Dockerfile         ✅ Multi-stage Build
+├── docker-compose.yml     ✅ Backend + Frontend
+├── data/                  📁 SQLite DB (Volume)
+└── project.md             ✅ Projektdokumentation
 ```
 
 ---
@@ -48,8 +48,9 @@
 - python-jose (JWT auth)
 
 ## Frontend Dependencies (npm)
-- vite (build tool)
-- react + react-dom
+- vite 8.x (build tool)
+- vue 3.5.x (UI framework)
+- vue-tsc (TypeScript compiler)
 - axios (HTTP client)
 
 ---
@@ -57,11 +58,9 @@
 ## Datenbank Schema
 
 **Tables:**
-- `users` - Lehrer-Logins
-- `rooms` - Schulzimmer (Name + Subnetz)
-- `whitelist_templates` - URL-Listen
-- `schedules` - Zeitpläne
-- `room_status` - Aktueller Status pro Raum
+- `users` - Lehrer-Logins (username, password_hash, vlan_id, room_name)
+- `rooms` - Schulzimmer (name, subnet, vlan_id, internet_enabled)
+- `whitelist_templates` - URL-Listen pro Zimmer (name, urls, room_id)
 
 ---
 

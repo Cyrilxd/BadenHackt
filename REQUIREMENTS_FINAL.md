@@ -24,16 +24,16 @@ Internet → Firewall → Perimeter Firewall (unser Server) → 7 VLANs
 
 ## Berechtigungen
 
-**User-Modell:**
-- **1 Admin-User pro Zimmer** (7 User total)
-- Jeder Admin kann **nur sein Zimmer** steuern
-- Kein zentraler Super-Admin
-- Harte User-Trennung
+**User-Modell (v2.0 - aktuell implementiert):**
+- **3 Test-User** (lehrer, mueller, schmidt)
+- Jeder Lehrer kann **alle 7 Zimmer** steuern
+- Kein Zimmer-Binding — volle Flexibilität
+- Whitelists sind **pro Zimmer** gespeichert
 
 **Login-Flow:**
 - User loggt sich ein
-- Wird automatisch seinem Zimmer zugeordnet (via Username)
-- Sieht nur sein Zimmer im Dashboard
+- Sieht **alle 7 Zimmer** im Dashboard (Grid-Ansicht)
+- Kann jedes Zimmer steuern (Internet EIN/AUS)
 
 ---
 
@@ -88,18 +88,21 @@ Internet → Firewall → Perimeter Firewall (unser Server) → 7 VLANs
 ## Tech-Stack (Final)
 
 **Backend:**
-- FastAPI (Python)
+- FastAPI (Python 3.11)
 - nftables (Firewall-Rules pro VLAN)
-- Squid (URL-Filtering)
-- SQLite (User + Whitelist-Templates)
+- SQLite (User + Rooms + Whitelist-Templates)
+- SQLAlchemy 2.0 (ORM)
+- JWT Auth (python-jose + bcrypt)
 
 **Frontend:**
-- React + Vite
+- Vue 3 + TypeScript + Vite
+- Axios (HTTP-Client)
+- Composition API + SFC
 - Minimales UI (Login, Dashboard, Whitelist-Manager)
 
 **Deployment:**
-- Nginx Reverse Proxy
-- Systemd Services
+- Docker Compose
+- Nginx Reverse Proxy (Frontend-Container)
 
 ---
 
@@ -125,18 +128,20 @@ http_access deny vlan18
 
 ### 3. Backend-Endpoints
 ```
-POST /api/login          → JWT-Token
-GET  /api/rooms          → Mein Zimmer (1 Eintrag)
-POST /api/rooms/{id}/internet  → EIN/AUS
-GET  /api/whitelists     → Templates
-POST /api/whitelists     → Upload/Create
+POST /api/login               → JWT-Token
+GET  /api/rooms               → Alle 7 Zimmer
+POST /api/rooms/{id}/toggle   → Internet EIN/AUS
+GET  /api/whitelists           → Templates (opt. ?room_id=)
+POST /api/whitelists           → Create
+DELETE /api/whitelists/{id}    → Delete
+GET  /api/health               → Health Check
 ```
 
 ### 4. Frontend-Views
 ```
-/login           → Login-Formular
-/dashboard       → Zimmer-Status (Internet EIN/AUS Button)
-/whitelist       → Whitelist-Manager (Upload/Edit)
+SPA (Single Page Application):
+- Login-Formular (nicht authentifiziert)
+- Dashboard mit Zimmer-Grid + Whitelist-Manager (authentifiziert)
 ```
 
 ---
