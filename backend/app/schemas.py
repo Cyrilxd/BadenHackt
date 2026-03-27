@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator
 
 from .validators import parse_whitelist_url_entry
 
@@ -13,6 +13,8 @@ class Token(BaseModel):
 
 
 class RoomResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     name: str
     subnet: str
@@ -25,9 +27,6 @@ class RoomResponse(BaseModel):
     manual_override_enabled: Optional[bool]
     control_mode: str
     schedule_target_enabled: Optional[bool]
-
-    class Config:
-        from_attributes = True
 
 
 class ToggleResponse(BaseModel):
@@ -93,14 +92,13 @@ class WhitelistCreate(BaseModel):
 
 
 class WhitelistResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     name: str
     urls: List[str]
     room_id: int
     is_active: bool
-
-    class Config:
-        from_attributes = True
 
 
 class DeleteResponse(BaseModel):
@@ -110,6 +108,8 @@ class DeleteResponse(BaseModel):
 class AuditLogResponse(BaseModel):
     """Einzelner Audit-Eintrag für API-Antworten."""
 
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     timestamp: datetime
     username: str
@@ -117,9 +117,6 @@ class AuditLogResponse(BaseModel):
     target: Optional[str] = None
     detail: Optional[str] = None
     success: bool
-
-    class Config:
-        from_attributes = True
 
 
 class WhitelistToggle(BaseModel):
