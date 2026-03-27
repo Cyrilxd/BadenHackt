@@ -168,7 +168,7 @@ async def update_room_schedule(
     log_action(
         db,
         username=current_user.username,
-        action=AuditAction.INTERNET_TOGGLE,
+        action=AuditAction.SCHEDULE_UPDATE,
         target=f"{room.name} (VLAN {room.vlan_id})",
         detail={
             "schedule_enabled": room.schedule_enabled,

@@ -74,7 +74,9 @@ docker-compose logs -f
 **Frontend**: http://localhost (Port 80)  
 **Backend API**: http://localhost:8000  
 **Firewall Mock API**: http://localhost:8081  
-**API Dokumentation**: http://localhost:8000/docs
+**API Dokumentation (Swagger UI)**: http://localhost:8000/docs
+**API Dokumentation (ReDoc)**: http://localhost:8000/redoc
+**Health Check**: http://localhost:8000/api/health
 
 ### 4. Login
 

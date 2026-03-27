@@ -9,6 +9,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
 from ldap3 import ALL, Connection, Server
+from ldap3.utils.conv import escape_filter_chars
 from sqlalchemy.orm import Session
 
 from . import database
@@ -62,7 +63,7 @@ def _ldap_bind_and_search(username: str) -> Optional[str]:
     )
     search_filter = os.environ.get(
         "LDAP_USER_SEARCH_FILTER", "(uid={username})"
-    ).format(username=username)
+    ).format(username=escape_filter_chars(username))
 
     if not bind_dn or bind_password is None or not search_base:
         return None

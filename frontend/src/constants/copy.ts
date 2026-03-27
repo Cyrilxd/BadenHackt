@@ -111,6 +111,7 @@ export const copy = {
       whitelist_update: "Whitelist bearbeitet",
       whitelist_delete: "Whitelist gelöscht",
       whitelist_toggle: "Whitelist an/aus",
+      schedule_update: "Zeitplan aktualisiert",
     } as Record<string, string>,
   },
   room: {

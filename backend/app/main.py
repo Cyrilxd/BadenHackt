@@ -1,14 +1,20 @@
 import asyncio
 import logging
+import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request, Response
+from fastapi import Depends, FastAPI, Request, Response
+from fastapi.responses import JSONResponse
+from sqlalchemy import text
+from sqlalchemy.orm import Session
 
-from . import firewall
-from .database import SessionLocal, init_db
+from . import auth, firewall
+from .database import SessionLocal, get_db, init_db
 from .init_data import init_test_data
 from .room_schedule import sync_scheduled_rooms
 from .routers import audit_routes, auth_routes, room_routes, whitelist_routes
+
+ALLOWED_ORIGIN = os.environ.get("ALLOWED_ORIGIN", "*")
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -61,7 +67,7 @@ async def add_cors_headers(request: Request, call_next):
     else:
         response = await call_next(request)
 
-    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Origin"] = ALLOWED_ORIGIN
     response.headers["Access-Control-Allow-Methods"] = "*"
     response.headers["Access-Control-Allow-Headers"] = "*"
     response.headers["Access-Control-Max-Age"] = "3600"
@@ -76,5 +82,31 @@ app.include_router(audit_routes.router)
 
 
 @app.get("/api/health")
-async def health_check():
-    return {"status": "ok", "service": "internet-control-api", "version": "2.0.0"}
+async def health_check(db: Session = Depends(get_db)):
+    db_ok = False
+    try:
+        db.execute(text("SELECT 1"))
+        db_ok = True
+    except Exception:
+        pass
+
+    ldap_status = "disabled"
+    if auth.ldap_enabled():
+        try:
+            from ldap3 import NONE as LDAP_NONE
+            from ldap3 import Connection, Server
+            server = Server(auth._ldap_server_uri(), get_info=LDAP_NONE, connect_timeout=2)
+            with Connection(server, auto_bind=True):
+                ldap_status = "connected"
+        except Exception:
+            ldap_status = "error"
+
+    all_ok = db_ok and ldap_status != "error"
+    body = {
+        "status": "ok" if all_ok else "degraded",
+        "db": "connected" if db_ok else "error",
+        "ldap": ldap_status,
+        "service": "internet-control-api",
+        "version": "2.0.0",
+    }
+    return JSONResponse(content=body, status_code=200 if all_ok else 503)

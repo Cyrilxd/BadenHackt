@@ -27,6 +27,7 @@ class AuditAction(str, Enum):
     WHITELIST_UPDATE   = "whitelist_update"
     WHITELIST_DELETE   = "whitelist_delete"
     WHITELIST_TOGGLE   = "whitelist_toggle"
+    SCHEDULE_UPDATE    = "schedule_update"
 
 
 def log_action(
