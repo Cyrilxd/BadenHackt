@@ -9,7 +9,9 @@ import WhitelistModal from './dashboard/WhitelistModal.vue'
 const rooms = ref<Room[]>([])
 const whitelists = ref<Whitelist[]>([])
 const selectedRoomId = ref<number | null>(null)
-const loading = ref(false)
+const fetching = ref(false)
+const loadingRoomId = ref<number | null>(null)
+const loadingModal = ref(false)
 const error = ref('')
 const modalVisible = ref(false)
 
@@ -31,7 +33,7 @@ onMounted(async () => {
 })
 
 async function loadData() {
-  loading.value = true
+  fetching.value = true
   error.value = ''
   try {
     rooms.value = await roomsApi.getRooms()
@@ -39,12 +41,12 @@ async function loadData() {
   } catch {
     error.value = copy.dashboard.loadError
   } finally {
-    loading.value = false
+    fetching.value = false
   }
 }
 
 async function toggleInternet(room: Room) {
-  loading.value = true
+  loadingRoomId.value = room.id
   error.value = ''
 
   try {
@@ -54,7 +56,7 @@ async function toggleInternet(room: Room) {
   } catch {
     error.value = copy.dashboard.toggleError
   } finally {
-    loading.value = false
+    loadingRoomId.value = null
   }
 }
 
@@ -109,7 +111,7 @@ async function createWhitelist() {
     return
   }
 
-  loading.value = true
+  loadingModal.value = true
   error.value = ''
 
   try {
@@ -128,7 +130,7 @@ async function createWhitelist() {
     error.value =
       err?.response?.data?.detail || copy.dashboard.whitelistCreateError
   } finally {
-    loading.value = false
+    loadingModal.value = false
   }
 }
 
@@ -168,7 +170,7 @@ async function updateWhitelist() {
     return
   }
 
-  loading.value = true
+  loadingModal.value = true
   error.value = ''
 
   try {
@@ -189,14 +191,14 @@ async function updateWhitelist() {
     error.value =
       err?.response?.data?.detail || copy.dashboard.whitelistUpdateError
   } finally {
-    loading.value = false
+    loadingModal.value = false
   }
 }
 
 async function deleteWhitelist(id: number) {
   if (!confirm(copy.dashboard.deleteConfirm)) return
 
-  loading.value = true
+  loadingModal.value = true
   error.value = ''
 
   try {
@@ -209,7 +211,7 @@ async function deleteWhitelist(id: number) {
   } catch (err: any) {
     error.value = err?.response?.data?.detail || copy.dashboard.whitelistDeleteError
   } finally {
-    loading.value = false
+    loadingModal.value = false
   }
 }
 
@@ -227,7 +229,7 @@ const selectedRoom = computed(() =>
 
     <p v-if="error" class="error-banner">{{ error }}</p>
 
-    <div v-if="loading && rooms.length === 0" class="loading">
+    <div v-if="fetching && rooms.length === 0" class="loading">
       {{ copy.dashboard.loading }}
     </div>
 
@@ -237,7 +239,7 @@ const selectedRoom = computed(() =>
         :key="room.id"
         :room="room"
         :selected="selectedRoomId === room.id"
-        :loading="loading"
+        :loading="loadingRoomId === room.id"
         @card-click="handleRoomCardClick"
         @toggle="toggleInternet"
         @manage="(r) => openWhitelistModal(r.id, !r.internet_enabled)"
@@ -248,7 +250,7 @@ const selectedRoom = computed(() =>
       :open="modalVisible"
       :room-title="selectedRoom?.name ?? ''"
       :lists="selectedRoomWhitelists"
-      :loading="loading"
+      :loading="loadingModal"
       :editing-id="editingWhitelistId"
       v-model:new-name="newWhitelistName"
       v-model:new-urls="newWhitelistUrls"
