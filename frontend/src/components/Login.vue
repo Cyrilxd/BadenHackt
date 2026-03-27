@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import { authApi } from '../api'
 
 const emit = defineEmits<{
-  login: [data: { token: string; user: any }]
+  login: [data: { token: string; user: { username: string; role: string } }]
 }>()
 
 const username = ref('')
@@ -27,152 +27,179 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <div class="login-container">
-    <div class="login-card">
-      <h2>🔐 Login</h2>
-      <p class="subtitle">Internet EIN/AUS Steuerung</p>
+  <div class="login-layout">
+    <section class="login-card">
+      <div class="login-brand">
+        <img src="/zB_Logo.png" alt="zB Logo" class="logo" />
+      </div>
 
-      <form @submit.prevent="handleSubmit">
-        <div class="form-group">
-          <label for="username">Benutzername</label>
-          <input
-            id="username"
-            v-model="username"
-            type="text"
-            placeholder="lehrer"
-            required
-            autofocus
-          />
-        </div>
+      <div class="login-headline">
+        <h1>Anmeldung</h1>
+        <p>Internetzugang für Schulzimmer zentral steuern</p>
+      </div>
 
-        <div class="form-group">
-          <label for="password">Passwort</label>
-          <input
-            id="password"
-            v-model="password"
-            type="password"
-            placeholder="••••••••"
-            required
-          />
-        </div>
+      <form class="login-form" @submit.prevent="handleSubmit">
+        <label for="username">Benutzername</label>
+        <input
+          id="username"
+          v-model="username"
+          type="text"
+          placeholder="lehrer"
+          autocomplete="username"
+          required
+          autofocus
+        />
 
-        <div v-if="error" class="error">{{ error }}</div>
+        <label for="password">Passwort</label>
+        <input
+          id="password"
+          v-model="password"
+          type="password"
+          placeholder="••••••••"
+          autocomplete="current-password"
+          required
+        />
+
+        <p v-if="error" class="error-alert">{{ error }}</p>
 
         <button type="submit" :disabled="loading" class="btn-primary">
-          {{ loading ? 'Anmeldung...' : 'Anmelden' }}
+          {{ loading ? 'Anmeldung läuft...' : 'Anmelden' }}
         </button>
       </form>
 
-      <div class="info-box">
-        <p><strong>🏫 Alle Lehrer können alle Zimmer steuern</strong></p>
-        <p><strong>Test-Login:</strong></p>
-        <p>Benutzername: <code>lehrer</code> oder <code>mueller</code> oder <code>schmidt</code></p>
+      <div class="credentials-box">
+        <p class="credentials-title">Test-Zugänge</p>
+        <p>Benutzer: <code>lehrer</code>, <code>mueller</code>, <code>schmidt</code></p>
         <p>Passwort: <code>admin123</code></p>
       </div>
-    </div>
+    </section>
   </div>
 </template>
 
 <style scoped>
-.login-container {
+.login-layout {
+  display: flex;
   width: 100%;
-  max-width: 450px;
+  justify-content: center;
 }
 
 .login-card {
-  background: var(--bg);
-  border-radius: var(--radius-lg);
-  padding: 3rem;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  width: min(460px, 100%);
+  border: 1px solid var(--color-border);
+  border-radius: 18px;
+  background: #fff;
+  padding: 2rem;
+  box-shadow: 0 18px 40px rgba(38, 89, 31, 0.09);
 }
 
-h2 {
-  margin: 0 0 0.5rem 0;
-  color: var(--text);
-  font-size: 2rem;
+.login-brand {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.logo {
+  width: 150px;
+  height: auto;
+}
+
+.login-headline {
   text-align: center;
+  margin-bottom: 1.6rem;
 }
 
-.subtitle {
-  color: var(--text-light);
-  text-align: center;
-  margin-bottom: 2rem;
+.login-headline h1 {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 1.4rem;
 }
 
-.form-group {
-  margin-bottom: 1.5rem;
+.login-headline p {
+  margin-top: 0.4rem;
+  color: var(--color-muted);
+  font-size: 0.92rem;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
 }
 
 label {
-  display: block;
-  margin-bottom: 0.5rem;
-  color: var(--text);
+  color: var(--color-text);
+  font-size: 0.87rem;
   font-weight: 600;
+  margin-top: 0.4rem;
 }
 
 input {
-  width: 100%;
-  padding: 0.75rem;
-  border: 2px solid var(--border);
-  border-radius: var(--radius);
-  font-size: 1rem;
-  transition: border-color 0.3s;
-  box-sizing: border-box;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 0.7rem 0.8rem;
+  font-size: 0.95rem;
 }
 
 input:focus {
-  outline: none;
-  border-color: var(--primary);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(101, 173, 65, 0.15);
 }
 
-.error {
-  background: #fee;
-  color: #c00;
-  padding: 0.75rem;
-  border-radius: var(--radius);
-  margin-bottom: 1rem;
-  text-align: center;
+.error-alert {
+  margin: 0.7rem 0 0.2rem;
+  border: 1px solid #f3c8c8;
+  border-radius: 10px;
+  background: #fff4f4;
+  padding: 0.6rem 0.75rem;
+  color: #9f2a2a;
+  font-size: 0.86rem;
 }
 
 .btn-primary {
-  width: 100%;
-  padding: 1rem;
-  background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
-  color: white;
-  border: none;
-  border-radius: var(--radius);
-  font-size: 1rem;
+  margin-top: 0.6rem;
+  border: 0;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-strong) 100%);
+  padding: 0.75rem 0.9rem;
+  color: #fff;
+  font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
-  transition: transform 0.3s;
 }
 
 .btn-primary:hover:not(:disabled) {
-  transform: translateY(-2px);
+  filter: brightness(1.03);
 }
 
 .btn-primary:disabled {
-  opacity: 0.6;
+  opacity: 0.7;
   cursor: not-allowed;
 }
 
-.info-box {
-  margin-top: 2rem;
-  padding: 1rem;
-  background: var(--bg-light);
-  border-radius: var(--radius);
-  font-size: 0.875rem;
-  text-align: center;
+.credentials-box {
+  margin-top: 1.5rem;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: #f8fcf6;
+  padding: 0.9rem 1rem;
+  color: var(--color-muted);
+  font-size: 0.84rem;
 }
 
-.info-box code {
-  background: var(--border);
-  padding: 0.2rem 0.4rem;
-  border-radius: 4px;
-  font-family: var(--mono);
+.credentials-title {
+  margin-bottom: 0.35rem;
+  color: var(--color-text);
+  font-weight: 700;
 }
 
-.info-box p {
-  margin: 0.5rem 0;
+.credentials-box p {
+  margin: 0.22rem 0;
+}
+
+code {
+  border-radius: 6px;
+  background: #edf3ea;
+  padding: 0.1rem 0.35rem;
+  font-size: 0.8rem;
 }
 </style>

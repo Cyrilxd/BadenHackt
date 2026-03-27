@@ -7,13 +7,12 @@ const whitelists = ref<Whitelist[]>([])
 const selectedRoomId = ref<number | null>(null)
 const loading = ref(false)
 const error = ref('')
+const modalVisible = ref(false)
 
-// Create form
 const showWhitelistForm = ref(false)
 const newWhitelistName = ref('')
 const newWhitelistUrls = ref('')
 
-// Edit form
 const editingWhitelistId = ref<number | null>(null)
 const editWhitelistName = ref('')
 const editWhitelistUrls = ref('')
@@ -57,8 +56,31 @@ async function toggleInternet(room: Room) {
 
 function selectRoom(roomId: number) {
   selectedRoomId.value = roomId
+}
+
+function openWhitelistModal(roomId: number, openCreateForm = false) {
+  selectRoom(roomId)
+  modalVisible.value = true
+  showWhitelistForm.value = openCreateForm
+  if (openCreateForm) {
+    cancelEditWhitelist()
+  }
+  error.value = ''
+}
+
+function closeWhitelistModal() {
+  modalVisible.value = false
   showWhitelistForm.value = false
   cancelEditWhitelist()
+  newWhitelistName.value = ''
+  newWhitelistUrls.value = ''
+}
+
+function handleRoomCardClick(room: Room) {
+  selectRoom(room.id)
+  if (!room.internet_enabled) {
+    openWhitelistModal(room.id, true)
+  }
 }
 
 async function createWhitelist() {
@@ -190,437 +212,455 @@ async function deleteWhitelist(id: number) {
     loading.value = false
   }
 }
+
+const selectedRoom = computed(() =>
+  rooms.value.find(r => r.id === selectedRoomId.value) ?? null
+)
 </script>
 
 <template>
   <div class="dashboard">
-    <div class="container">
-      <div v-if="error" class="error-banner">{{ error }}</div>
+    <div class="dashboard-header">
+      <div>
+        <p class="dashboard-eyebrow">Übersicht</p>
+        <h2>Zimmersteuerung</h2>
+      </div>
+      <img src="/zB_Logo.png" alt="zB Logo" class="header-logo" />
+    </div>
 
-      <section class="section">
-        <h2>🌐 Internet-Steuerung (Alle Zimmer)</h2>
+    <p v-if="error" class="error-banner">{{ error }}</p>
 
-        <div v-if="loading && rooms.length === 0" class="loading">Lädt...</div>
+    <div v-if="loading && rooms.length === 0" class="loading">Lädt Daten...</div>
 
-        <div v-else class="room-grid">
-          <div
-            v-for="room in rooms"
-            :key="room.id"
-            class="room-card"
-            :class="{ selected: selectedRoomId === room.id }"
-            @click="selectRoom(room.id)"
+    <section v-else class="room-grid">
+      <article
+        v-for="room in rooms"
+        :key="room.id"
+        class="room-card"
+        :class="{
+          'room-card-selected': selectedRoomId === room.id,
+          'room-card-disabled': !room.internet_enabled
+        }"
+        @click="handleRoomCardClick(room)"
+      >
+        <header class="room-head">
+          <h3>{{ room.name }}</h3>
+          <span class="vlan-badge">VLAN {{ room.vlan_id }}</span>
+        </header>
+
+        <p class="subnet">{{ room.subnet }}</p>
+
+        <p class="status-pill" :class="room.internet_enabled ? 'status-on' : 'status-off'">
+          {{ room.internet_enabled ? 'Internet aktiv' : 'Internet gesperrt' }}
+        </p>
+
+        <div class="room-actions">
+          <button
+            class="btn-toggle"
+            :class="room.internet_enabled ? 'btn-disable' : 'btn-enable'"
+            :disabled="loading"
+            @click.stop="toggleInternet(room)"
           >
-            <div class="room-header">
-              <h3>{{ room.name }}</h3>
-              <span class="subnet">VLAN {{ room.vlan_id }}</span>
-            </div>
+            {{ room.internet_enabled ? 'Sperren' : 'Freigeben' }}
+          </button>
 
-            <div class="room-status">
-              <span :class="['status-indicator', room.internet_enabled ? 'enabled' : 'disabled']">
-                {{ room.internet_enabled ? '🟢 Aktiv' : '🔴 Gesperrt' }}
-              </span>
-            </div>
-
-            <button
-              @click.stop="toggleInternet(room)"
-              :disabled="loading"
-              :class="['btn-toggle', room.internet_enabled ? 'btn-danger' : 'btn-success']"
-            >
-              {{ room.internet_enabled ? '🚫 Sperren' : '✅ Freigeben' }}
-            </button>
-          </div>
+          <button
+            class="btn-manage"
+            :disabled="loading"
+            @click.stop="openWhitelistModal(room.id, !room.internet_enabled)"
+          >
+            {{ room.internet_enabled ? 'Whitelist verwalten' : 'Whitelist direkt erfassen' }}
+          </button>
         </div>
-      </section>
+      </article>
+    </section>
 
-      <section v-if="selectedRoomId" class="section">
-        <div class="section-header">
-          <h2>📋 Whitelist: {{ rooms.find(r => r.id === selectedRoomId)?.name }}</h2>
-          <button @click="showWhitelistForm = !showWhitelistForm" class="btn-add">
-            {{ showWhitelistForm ? '❌ Abbrechen' : '➕ Neue Whitelist' }}
+    <div v-if="modalVisible" class="modal-backdrop" @click.self="closeWhitelistModal">
+      <section class="modal-card">
+        <header class="modal-header">
+          <div>
+            <p class="dashboard-eyebrow">Whitelist</p>
+            <h3>{{ selectedRoom?.name }}</h3>
+          </div>
+          <button class="btn-close" @click="closeWhitelistModal">Schliessen</button>
+        </header>
+
+        <div class="modal-toolbar">
+          <button class="btn-primary" @click="showWhitelistForm = !showWhitelistForm">
+            {{ showWhitelistForm ? 'Formular ausblenden' : 'Neue Whitelist' }}
           </button>
         </div>
 
-        <div v-if="showWhitelistForm" class="whitelist-form">
+        <div v-if="showWhitelistForm" class="editor-box">
           <input
             v-model="newWhitelistName"
             type="text"
-            placeholder="Name (z.B. 'Google Suite')"
-            class="input"
+            class="field"
+            placeholder="Name, z. B. Schulplattform"
           />
           <textarea
             v-model="newWhitelistUrls"
-            placeholder="URLs (eine pro Zeile)&#10;Beispiel:&#10;google.com&#10;gmail.com&#10;drive.google.com"
             rows="5"
-            class="textarea"
+            class="field field-area"
+            placeholder="Domains oder Hosts, eine Zeile pro Eintrag"
           ></textarea>
-          <button @click="createWhitelist" :disabled="loading" class="btn-primary">
-            Whitelist erstellen
-          </button>
+          <button class="btn-primary" :disabled="loading" @click="createWhitelist">Erstellen</button>
         </div>
 
-        <div v-if="selectedRoomWhitelists.length === 0 && !showWhitelistForm" class="empty-state">
-          Keine Whitelists für dieses Zimmer
-        </div>
+        <p v-if="selectedRoomWhitelists.length === 0 && !showWhitelistForm" class="empty">
+          Keine Whitelists für dieses Zimmer.
+        </p>
 
-        <div v-else class="whitelist-grid">
-          <div v-for="wl in selectedRoomWhitelists" :key="wl.id" class="whitelist-card">
-            <div v-if="editingWhitelistId === wl.id">
-              <div class="edit-form">
-                <input
-                  v-model="editWhitelistName"
-                  type="text"
-                  placeholder="Whitelist-Name"
-                  class="input"
-                />
-                <textarea
-                  v-model="editWhitelistUrls"
-                  rows="5"
-                  class="textarea"
-                  placeholder="URLs (eine pro Zeile)"
-                ></textarea>
-                <div class="edit-actions">
-                  <button @click.stop="updateWhitelist" :disabled="loading" class="btn-primary">
-                    💾 Speichern
-                  </button>
-                  <button @click.stop="cancelEditWhitelist" :disabled="loading" class="btn-secondary">
-                    Abbrechen
-                  </button>
-                </div>
+        <div class="whitelist-list">
+          <article v-for="wl in selectedRoomWhitelists" :key="wl.id" class="whitelist-card">
+            <div v-if="editingWhitelistId === wl.id" class="editor-box editor-inline">
+              <input v-model="editWhitelistName" type="text" class="field" placeholder="Whitelist-Name" />
+              <textarea
+                v-model="editWhitelistUrls"
+                rows="5"
+                class="field field-area"
+                placeholder="Hosts eine Zeile pro Eintrag"
+              ></textarea>
+              <div class="inline-actions">
+                <button class="btn-primary" :disabled="loading" @click.stop="updateWhitelist">Speichern</button>
+                <button class="btn-light" :disabled="loading" @click.stop="cancelEditWhitelist">Abbrechen</button>
               </div>
             </div>
 
             <div v-else>
-              <div class="whitelist-header">
+              <header class="whitelist-head">
                 <h4>{{ wl.name }}</h4>
-                <div class="whitelist-actions">
-                  <button @click.stop="startEditWhitelist(wl)" class="btn-edit">✏️</button>
-                  <button @click.stop="deleteWhitelist(wl.id)" class="btn-delete">🗑️</button>
+                <div class="inline-actions">
+                  <button class="icon-btn" @click.stop="startEditWhitelist(wl)">Bearbeiten</button>
+                  <button class="icon-btn icon-btn-danger" @click.stop="deleteWhitelist(wl.id)">Löschen</button>
                 </div>
-              </div>
+              </header>
+
               <ul class="url-list">
                 <li v-for="(url, idx) in wl.urls" :key="idx">{{ url }}</li>
               </ul>
             </div>
-          </div>
+          </article>
         </div>
       </section>
-
-      <div v-else class="info-box">
-        👆 Wähle ein Zimmer aus, um Whitelists zu verwalten
-      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
 .dashboard {
-  width: 100%;
-  max-width: 1400px;
+  width: min(1200px, 100%);
+  margin: 0 auto;
+  padding: 1.5rem;
 }
 
-.container {
-  padding: 2rem;
-}
-
-.section {
-  background: var(--bg);
-  border-radius: var(--radius-lg);
-  padding: 2rem;
-  margin-bottom: 2rem;
-  box-shadow: var(--shadow);
-}
-
-.section-header {
+.dashboard-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 1.5rem;
+  justify-content: space-between;
+  margin-bottom: 1.2rem;
 }
 
-h2 {
-  margin: 0 0 1.5rem 0;
-  color: var(--text);
+.dashboard-eyebrow {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.dashboard-header h2 {
+  margin: 0.25rem 0 0;
+  color: var(--color-text);
+  font-size: 1.5rem;
+}
+
+.header-logo {
+  width: 72px;
+  height: auto;
 }
 
 .error-banner {
-  background: #fee;
-  color: #c00;
-  padding: 1rem;
-  border-radius: var(--radius);
+  border: 1px solid #f0c8c8;
+  border-radius: 10px;
+  background: #fff5f5;
+  padding: 0.8rem;
   margin-bottom: 1rem;
-  text-align: center;
+  color: #a03333;
+  font-size: 0.9rem;
 }
 
 .room-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 1rem;
 }
 
 .room-card {
-  border: 2px solid var(--border);
-  border-radius: 12px;
-  padding: 1.5rem;
-  transition: all 0.3s;
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background: #fff;
+  padding: 1rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
   cursor: pointer;
 }
 
 .room-card:hover {
-  border-color: var(--primary);
-  box-shadow: var(--shadow-hover);
+  border-color: var(--color-primary);
+  box-shadow: 0 12px 26px rgba(44, 100, 36, 0.1);
 }
 
-.room-card.selected {
-  border-color: var(--primary);
-  background: #f8f9ff;
-  box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3);
+.room-card-selected {
+  border-color: var(--color-primary);
 }
 
-.room-header {
+.room-card-disabled {
+  border-color: #e3c9c9;
+  background: #fffdfd;
+}
+
+.room-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1rem;
+  gap: 0.5rem;
 }
 
-.room-header h3 {
+.room-head h3 {
   margin: 0;
-  color: var(--text);
-  font-size: 1.2rem;
+  color: var(--color-text);
+  font-size: 1.05rem;
+}
+
+.vlan-badge {
+  border-radius: 999px;
+  background: #edf6ea;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.75rem;
+  color: #3a7440;
+  font-weight: 700;
 }
 
 .subnet {
-  color: var(--text-light);
-  font-size: 0.75rem;
-  background: var(--bg-light);
-  padding: 0.25rem 0.5rem;
-  border-radius: 4px;
-  font-weight: 600;
+  margin: 0.75rem 0;
+  color: var(--color-muted);
+  font-family: var(--mono);
+  font-size: 0.82rem;
 }
 
-.room-status {
-  margin-bottom: 1rem;
-}
-
-.status-indicator {
+.status-pill {
   display: inline-block;
-  padding: 0.5rem 1rem;
-  border-radius: 20px;
-  font-weight: 600;
-  font-size: 0.875rem;
+  border-radius: 999px;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.78rem;
+  font-weight: 700;
 }
 
-.status-indicator.enabled {
-  background: #d4edda;
-  color: #155724;
+.status-on {
+  background: #e7f7e3;
+  color: #2f7c22;
 }
 
-.status-indicator.disabled {
-  background: #f8d7da;
-  color: #721c24;
+.status-off {
+  background: #faecec;
+  color: #a13333;
 }
 
-.btn-toggle {
-  width: 100%;
-  padding: 0.875rem;
-  border: none;
-  border-radius: var(--radius);
-  font-size: 0.95rem;
-  font-weight: 600;
+.room-actions {
+  margin-top: 0.9rem;
+  display: flex;
+  gap: 0.55rem;
+}
+
+.btn-toggle,
+.btn-manage {
+  flex: 1;
+  border: 0;
+  border-radius: 10px;
+  padding: 0.58rem 0.7rem;
+  font-size: 0.82rem;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.3s;
 }
 
-.btn-danger {
-  background: linear-gradient(135deg, var(--danger) 0%, var(--danger-light) 100%);
-  color: white;
+.btn-manage {
+  border: 1px solid var(--color-border);
+  background: #fff;
+  color: var(--color-text);
 }
 
-.btn-success {
-  background: linear-gradient(135deg, var(--success) 0%, var(--success-light) 100%);
-  color: white;
+.btn-enable {
+  background: var(--color-primary);
+  color: #fff;
 }
 
-.btn-toggle:hover:not(:disabled) {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+.btn-disable {
+  background: var(--color-danger);
+  color: #fff;
 }
 
-.btn-add {
-  padding: 0.75rem 1.5rem;
-  background: var(--primary);
-  color: white;
-  border: none;
-  border-radius: var(--radius);
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  background: rgba(20, 26, 18, 0.4);
+  padding: 1rem;
+}
+
+.modal-card {
+  width: min(840px, 100%);
+  max-height: 85vh;
+  overflow: auto;
+  border-radius: 16px;
+  border: 1px solid #dbead6;
+  background: #fff;
+  padding: 1rem;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.8rem;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.btn-close {
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: #fff;
+  padding: 0.5rem 0.75rem;
   cursor: pointer;
-  font-weight: 600;
-  transition: all 0.3s;
 }
 
-.btn-add:hover {
-  background: var(--primary-dark);
-  transform: translateY(-2px);
-}
-
-.whitelist-form {
-  background: var(--bg-light);
-  padding: 1.5rem;
-  border-radius: var(--radius);
-  margin-bottom: 1.5rem;
-}
-
-.input,
-.textarea {
-  width: 100%;
-  padding: 0.75rem;
-  border: 2px solid var(--border);
-  border-radius: var(--radius);
-  font-size: 1rem;
-  margin-bottom: 1rem;
-  box-sizing: border-box;
-}
-
-.textarea {
-  font-family: monospace;
-  resize: vertical;
+.modal-toolbar {
+  margin-bottom: 0.8rem;
 }
 
 .btn-primary {
-  padding: 0.75rem 1.5rem;
-  background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
-  color: white;
-  border: none;
-  border-radius: var(--radius);
+  border: 0;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-strong));
+  padding: 0.62rem 0.9rem;
+  color: #fff;
+  font-weight: 700;
   cursor: pointer;
-  font-weight: 600;
-  transition: all 0.3s;
 }
 
-.btn-primary:hover {
-  transform: translateY(-2px);
-}
-
-.btn-secondary {
-  padding: 0.75rem 1.5rem;
-  background: var(--bg-light);
-  color: var(--text);
-  border: 2px solid var(--border);
-  border-radius: var(--radius);
+.btn-light {
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: #fff;
+  padding: 0.62rem 0.9rem;
+  font-weight: 700;
   cursor: pointer;
-  font-weight: 600;
-  transition: all 0.3s;
 }
 
-.btn-secondary:hover {
-  border-color: var(--primary);
+.editor-box {
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: #f9fcf7;
+  padding: 0.8rem;
+  margin-bottom: 0.8rem;
 }
 
-.empty-state {
-  text-align: center;
-  color: var(--text-muted);
-  padding: 2rem;
+.field {
+  width: 100%;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: #fff;
+  padding: 0.62rem 0.7rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
 }
 
-.info-box {
-  background: var(--bg);
-  border-radius: var(--radius-lg);
-  padding: 3rem;
-  text-align: center;
-  color: var(--text-light);
-  font-size: 1.1rem;
-  box-shadow: var(--shadow);
+.field-area {
+  min-height: 120px;
+  resize: vertical;
+  font-family: var(--mono);
 }
 
-.whitelist-grid {
+.empty {
+  border: 1px dashed var(--color-border);
+  border-radius: 12px;
+  padding: 0.8rem;
+  color: var(--color-muted);
+}
+
+.whitelist-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 1rem;
+  gap: 0.7rem;
 }
 
 .whitelist-card {
-  border: 2px solid var(--border);
-  border-radius: var(--radius);
-  padding: 1rem;
-  transition: all 0.3s;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: #fff;
+  padding: 0.75rem;
 }
 
-.whitelist-card:hover {
-  border-color: var(--primary);
-  box-shadow: var(--shadow-hover);
-}
-
-.whitelist-header {
+.whitelist-head {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 0.5rem;
-}
-
-.whitelist-header h4 {
-  margin: 0;
-  color: var(--text);
-}
-
-.whitelist-actions {
-  display: flex;
   gap: 0.5rem;
-  align-items: center;
+  align-items: flex-start;
+  margin-bottom: 0.45rem;
 }
 
-.btn-edit {
-  background: none;
-  border: none;
+.whitelist-head h4 {
+  margin: 0;
+  font-size: 0.98rem;
+}
+
+.inline-actions {
+  display: flex;
+  gap: 0.45rem;
+}
+
+.icon-btn {
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: #fff;
+  padding: 0.3rem 0.55rem;
+  font-size: 0.76rem;
   cursor: pointer;
-  font-size: 1.1rem;
-  opacity: 0.7;
-  transition: opacity 0.3s;
 }
 
-.btn-edit:hover {
-  opacity: 1;
-}
-
-.btn-delete {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 1.2rem;
-  opacity: 0.6;
-  transition: opacity 0.3s;
-}
-
-.btn-delete:hover {
-  opacity: 1;
+.icon-btn-danger {
+  border-color: #f2d3d3;
+  color: #9e3c3c;
 }
 
 .url-list {
-  list-style: none;
-  padding: 0;
   margin: 0;
+  padding-left: 1rem;
+  color: var(--color-muted);
+  font-size: 0.86rem;
 }
 
 .url-list li {
-  padding: 0.25rem 0;
-  color: var(--text-light);
-  font-size: 0.875rem;
+  margin-bottom: 0.2rem;
   font-family: var(--mono);
   word-break: break-all;
 }
 
 .loading {
-  text-align: center;
-  padding: 2rem;
-  color: var(--text-muted);
+  border: 1px dashed var(--color-border);
+  border-radius: 12px;
+  background: #fff;
+  padding: 1rem;
+  color: var(--color-muted);
 }
 
-.edit-form {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.edit-actions {
-  display: flex;
-  gap: 0.75rem;
+.editor-inline {
+  margin-bottom: 0;
 }
 </style>

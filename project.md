@@ -122,6 +122,8 @@ BadenHackt/
 │   │   ├── App.vue            # Root-Komponente + Auth-State
 │   │   ├── main.ts            # Vue App Bootstrap
 │   │   └── style.css          # Globale Styles
+│   ├── public/
+│   │   └── zB_Logo.png        # Branding-Logo (Login + Dashboard)
 │   ├── index.html
 │   ├── package.json
 │   ├── vite.config.ts
@@ -140,6 +142,13 @@ BadenHackt/
 | VITE_API_URL | Backend URL (Dev) | http://localhost:8000                |
 
 ## Changelog
+
+### 2026-03-27 - Frontend UI Redesign (grün, logo-basiert)
+- `frontend/public/zB_Logo.png`: neues zB-Branding im Projekt integriert.
+- `frontend/src/App.vue` + `frontend/src/style.css`: neues Layout/Theme in Grün, Header mit Logo nach Login, konsistente Farb- und Abstands-Tokens.
+- `frontend/src/components/Login.vue`: Login visuell neu aufgebaut (Card-Layout mit Logo, klare Felder, gleiche Login-Logik).
+- `frontend/src/components/Dashboard.vue`: Zimmer-Karten neu gestaltet; Whitelist-Verwaltung in Modal/Card direkt pro Zimmer (inkl. direkter Eingabe bei gesperrtem Zimmer), ohne API- oder Business-Logikänderung.
+- Verifikation: `npm run build` im `frontend/` erfolgreich.
 
 ### 2026-03-27 - Whitelist-Host-Validierung (Backend)
 - `backend/app/validators.py`: Extraktion wie bisher, plus syntaktische Prüfung (IPv4/IPv6 über `ipaddress`, Domainnamen über IDNA + RFC-1035-Labels, Längenlimits als Konstanten).

@@ -1,130 +1,153 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
 import Login from './components/Login.vue'
 import Dashboard from './components/Dashboard.vue'
 
+type User = { username: string; role: string }
+
 const isAuthenticated = ref(false)
-const user = ref<{ username: string; role: string } | null>(null)
+const user = ref<User | null>(null)
 
 onMounted(() => {
   const token = localStorage.getItem('token')
   const userData = localStorage.getItem('user')
 
-  if (token && userData) {
-    try {
-      user.value = JSON.parse(userData)
-      isAuthenticated.value = true
-    } catch {
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
-    }
+  if (!token || !userData) return
+
+  try {
+    user.value = JSON.parse(userData)
+    isAuthenticated.value = true
+  } catch {
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
   }
 })
 
-function handleLogin(loginData: { token: string; user: any }) {
+function handleLogin(loginData: { token: string; user: User }) {
   localStorage.setItem('token', loginData.token)
   localStorage.setItem('user', JSON.stringify(loginData.user))
-  isAuthenticated.value = true
   user.value = loginData.user
+  isAuthenticated.value = true
 }
 
 function handleLogout() {
   localStorage.removeItem('token')
   localStorage.removeItem('user')
-  isAuthenticated.value = false
   user.value = null
+  isAuthenticated.value = false
 }
 </script>
 
 <template>
-  <div class="app">
-    <header v-if="isAuthenticated" class="header">
-      <div class="container">
-        <h1>🌐 Internet EIN/AUS</h1>
-        <div class="user-info">
-          <span>👤 {{ user?.username }}</span>
-          <button @click="handleLogout" class="btn-logout">Abmelden</button>
+  <div class="app-shell">
+    <header v-if="isAuthenticated" class="topbar">
+      <div class="topbar-inner">
+        <div class="brand">
+          <img src="/zB_Logo.png" alt="zB Logo" class="brand-logo" />
+          <div class="brand-copy">
+            <p class="brand-title">Internet Steuerung</p>
+            <p class="brand-subtitle">Schulzimmer VLAN Verwaltung</p>
+          </div>
+        </div>
+
+        <div class="session">
+          <span class="session-user">{{ user?.username }}</span>
+          <button class="btn-logout" @click="handleLogout">Abmelden</button>
         </div>
       </div>
     </header>
 
-    <main class="main">
+    <main class="app-main" :class="{ 'app-main-auth': isAuthenticated }">
       <Login v-if="!isAuthenticated" @login="handleLogin" />
       <Dashboard v-else />
     </main>
-
-    <footer class="footer">
-      <p>zB. Zentrum Bildung Baden | Hackathon 2026 🦇</p>
-    </footer>
   </div>
 </template>
 
 <style scoped>
-.app {
+.app-shell {
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(160deg, #f3f9f1 0%, #ecf8e8 48%, #e4f4de 100%);
 }
 
-.header {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-  padding: 1.5rem 0;
+.topbar {
+  border-bottom: 1px solid var(--color-border);
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(6px);
 }
 
-.header .container {
-  max-width: 1400px;
+.topbar-inner {
   margin: 0 auto;
-  padding: 0 2rem;
   display: flex;
+  max-width: 1200px;
+  align-items: center;
   justify-content: space-between;
-  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
 }
 
-.header h1 {
-  margin: 0;
-  color: #333;
-  font-size: 1.8rem;
-}
-
-.user-info {
+.brand {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  color: #666;
-  font-weight: 500;
+  gap: 0.75rem;
+}
+
+.brand-logo {
+  width: 66px;
+  height: auto;
+}
+
+.brand-title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.brand-subtitle {
+  font-size: 0.8rem;
+  color: var(--color-muted);
+}
+
+.session {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.session-user {
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: #fff;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.85rem;
+  color: var(--color-muted);
 }
 
 .btn-logout {
-  padding: 0.5rem 1rem;
-  background: #ee0979;
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
+  border: 0;
+  border-radius: 10px;
+  background: var(--color-danger);
+  padding: 0.5rem 0.9rem;
+  color: #fff;
+  font-size: 0.85rem;
   font-weight: 600;
-  transition: all 0.3s;
+  cursor: pointer;
 }
 
 .btn-logout:hover {
-  background: #ff6a00;
-  transform: translateY(-2px);
+  background: var(--color-danger-strong);
 }
 
-.main {
-  flex: 1;
+.app-main {
   display: flex;
+  min-height: 100vh;
   align-items: center;
   justify-content: center;
-  padding: 2rem;
+  padding: 2rem 1rem;
 }
 
-.footer {
-  background: rgba(0, 0, 0, 0.2);
-  color: white;
-  text-align: center;
-  padding: 1rem;
+.app-main-auth {
+  min-height: calc(100vh - 78px);
+  align-items: stretch;
 }
 </style>
