@@ -198,12 +198,13 @@ def test_update_schedule_clears_manual_override_when_requested(
     assert resp.status_code == 200
     body = resp.json()
     assert body["manual_override_active"] is False
-    assert body["internet_enabled"] is True
+    # 10:00 liegt im Sperrzeitfenster 08:00-16:00 → internet gesperrt
+    assert body["internet_enabled"] is False
     assert body["control_mode"] == "schedule"
     db.refresh(room)
     assert room.manual_override_active is False
     assert room.manual_override_enabled is None
-    assert room.internet_enabled is True
+    assert room.internet_enabled is False
 
 
 def test_get_rooms_applies_schedule_when_no_override(client, auth_headers, room, db):
@@ -221,11 +222,12 @@ def test_get_rooms_applies_schedule_when_no_override(client, auth_headers, room,
 
     assert resp.status_code == 200
     body = resp.json()[0]
-    assert body["internet_enabled"] is True
+    # 09:00 liegt im Sperrzeitfenster 08:00-16:00 → internet gesperrt
+    assert body["internet_enabled"] is False
     assert body["control_mode"] == "schedule"
-    assert body["schedule_target_enabled"] is True
+    assert body["schedule_target_enabled"] is False
     db.refresh(room)
-    assert room.internet_enabled is True
+    assert room.internet_enabled is False
 
 
 def test_get_rooms_keeps_manual_override_over_schedule(client, auth_headers, room, db):
@@ -247,7 +249,8 @@ def test_get_rooms_keeps_manual_override_over_schedule(client, auth_headers, roo
     body = resp.json()[0]
     assert body["internet_enabled"] is False
     assert body["control_mode"] == "manual_override"
-    assert body["schedule_target_enabled"] is True
+    # 09:00 im Sperrzeitfenster 08:00-16:00 → schedule_target_enabled = False (gesperrt)
+    assert body["schedule_target_enabled"] is False
 
 
 def test_update_schedule_rejects_equal_times(client, auth_headers, room):
