@@ -112,6 +112,8 @@ BadenHackt/
 │   │   ├── components/
 │   │   │   ├── Dashboard.vue  # Zimmer-Grid + Whitelist-Mgmt
 │   │   │   └── Login.vue      # Login-Formular
+│   │   ├── tailwind-plus/
+│   │   │   └── vue/           # Tailwind Plus (Vue) UI-Blöcke (Referenz, 657 Dateien)
 │   │   ├── api.ts             # Axios API-Client
 │   │   ├── App.vue            # Root-Komponente + Auth-State
 │   │   ├── main.ts            # Vue App Bootstrap
@@ -134,6 +136,9 @@ BadenHackt/
 | VITE_API_URL | Backend URL (Dev) | http://localhost:8000                |
 
 ## Changelog
+
+### 2026-03-27 - Tailwind Plus Vue (lokale Komponenten)
+- `frontend/src/tailwind-plus/vue/`: vollständiger Inhalt von `tailwind-plus-components/components/vue` (UI-Blocks als `.vue`-Dateien). Nutzung setzt passendes Tailwind-CSS-Setup voraus; App-Views (`Login`/`Dashboard`) sind davon unverändert.
 
 ### 2026-03-27 - Projekt-Bereinigung
 - Backend: `__init__.py` erstellt (fehlte)
