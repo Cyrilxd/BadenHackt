@@ -1,22 +1,33 @@
 import subprocess
+import shutil
 import logging
 
 logger = logging.getLogger(__name__)
 
+NFT_AVAILABLE = shutil.which("nft") is not None
+
+if not NFT_AVAILABLE:
+    logger.warning("nft not found — running in simulation mode (no actual firewall changes)")
+
+_blocked_subnets: set[str] = set()
+
+
 class FirewallManager:
-    """Manages nftables rules for VLAN blocking"""
-    
+    """Manages nftables rules for VLAN blocking.
+    Falls back to in-memory simulation when nft is unavailable (e.g. Windows/dev)."""
+
     @staticmethod
     def block_vlan(vlan_id: int, subnet: str) -> bool:
-        """Block internet access for a VLAN"""
+        if not NFT_AVAILABLE:
+            _blocked_subnets.add(subnet)
+            logger.info(f"[SIM] Blocked VLAN {vlan_id} ({subnet})")
+            return True
         try:
-            # Add drop rule for subnet
             cmd = [
                 "nft", "add", "rule", "inet", "filter", "forward",
                 "ip", "saddr", subnet, "drop"
             ]
             result = subprocess.run(cmd, capture_output=True, text=True)
-            
             if result.returncode == 0:
                 logger.info(f"Blocked VLAN {vlan_id} ({subnet})")
                 return True
@@ -26,54 +37,46 @@ class FirewallManager:
         except Exception as e:
             logger.error(f"Error blocking VLAN {vlan_id}: {e}")
             return False
-    
+
     @staticmethod
     def unblock_vlan(vlan_id: int, subnet: str) -> bool:
-        """Unblock internet access for a VLAN"""
+        if not NFT_AVAILABLE:
+            _blocked_subnets.discard(subnet)
+            logger.info(f"[SIM] Unblocked VLAN {vlan_id} ({subnet})")
+            return True
         try:
-            # Find and delete the drop rule for this subnet
-            # First, list rules to find the handle
             list_cmd = ["nft", "-a", "list", "chain", "inet", "filter", "forward"]
             result = subprocess.run(list_cmd, capture_output=True, text=True)
-            
             if result.returncode != 0:
                 logger.error(f"Failed to list rules: {result.stderr}")
                 return False
-            
-            # Parse output to find rule with our subnet
             for line in result.stdout.split('\n'):
-                if subnet in line and 'drop' in line:
-                    # Extract handle number
-                    if '# handle' in line:
-                        handle = line.split('# handle')[-1].strip()
-                        # Delete rule by handle
-                        del_cmd = ["nft", "delete", "rule", "inet", "filter", "forward", "handle", handle]
-                        del_result = subprocess.run(del_cmd, capture_output=True, text=True)
-                        
-                        if del_result.returncode == 0:
-                            logger.info(f"Unblocked VLAN {vlan_id} ({subnet})")
-                            return True
-            
+                if subnet in line and 'drop' in line and '# handle' in line:
+                    handle = line.split('# handle')[-1].strip()
+                    del_cmd = ["nft", "delete", "rule", "inet", "filter", "forward", "handle", handle]
+                    del_result = subprocess.run(del_cmd, capture_output=True, text=True)
+                    if del_result.returncode == 0:
+                        logger.info(f"Unblocked VLAN {vlan_id} ({subnet})")
+                        return True
             logger.warning(f"No blocking rule found for VLAN {vlan_id}")
-            return True  # Not blocked, so technically unblocked
-            
+            return True
         except Exception as e:
             logger.error(f"Error unblocking VLAN {vlan_id}: {e}")
             return False
-    
+
     @staticmethod
     def get_vlan_status(subnet: str) -> bool:
-        """Check if VLAN is currently blocked. Returns True if internet is enabled."""
+        """Returns True if internet is enabled (not blocked)."""
+        if not NFT_AVAILABLE:
+            return subnet not in _blocked_subnets
         try:
             list_cmd = ["nft", "list", "chain", "inet", "filter", "forward"]
             result = subprocess.run(list_cmd, capture_output=True, text=True)
-            
             if result.returncode == 0:
                 for line in result.stdout.split('\n'):
                     if subnet in line and 'drop' in line:
                         return False
                 return True
-            
             return True
         except Exception as e:
             logger.error(f"Error checking VLAN status: {e}")
