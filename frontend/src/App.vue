@@ -51,8 +51,10 @@ function handleLogout() {
         </div>
 
         <div class="session">
-          <span class="session-user">{{ user?.username }}</span>
-          <button class="btn-logout" @click="handleLogout">Abmelden</button>
+          <span class="session-pill">{{ user?.username }}</span>
+          <button type="button" class="session-pill session-pill-button" @click="handleLogout">
+            Abmelden
+          </button>
         </div>
       </div>
     </header>
@@ -114,7 +116,10 @@ function handleLogout() {
   gap: 0.75rem;
 }
 
-.session-user {
+/* Gleiche Optik wie die User-Pille: weiss (#fff), Rand, Text grau (--color-muted) */
+.session-pill {
+  display: inline-flex;
+  align-items: center;
   border: 1px solid var(--color-border);
   border-radius: 999px;
   background: #fff;
@@ -123,19 +128,16 @@ function handleLogout() {
   color: var(--color-muted);
 }
 
-.btn-logout {
-  border: 0;
-  border-radius: 10px;
-  background: var(--color-danger);
-  padding: 0.5rem 0.9rem;
-  color: #fff;
-  font-size: 0.85rem;
+.session-pill-button {
+  margin: 0;
+  font: inherit;
   font-weight: 600;
   cursor: pointer;
 }
 
-.btn-logout:hover {
-  background: var(--color-danger-strong);
+.session-pill-button:hover {
+  border-color: var(--color-primary);
+  color: var(--color-text);
 }
 
 .app-main {

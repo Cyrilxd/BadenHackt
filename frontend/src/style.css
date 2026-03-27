@@ -4,6 +4,12 @@
   --color-text: #203125;
   --color-muted: #5b6a60;
   --color-border: #d8e4d4;
+  /* Status „Internet aktiv“ / dezente Aktionen im gleichen Grün */
+  --color-status-on-bg: #e7f7e3;
+  --color-status-on-fg: #2f7c22;
+  --color-status-on-border: #c5e8bc;
+  --color-status-off-bg: #faecec;
+  --color-status-off-fg: #a13333;
   --color-danger: #cc4f4f;
   --color-danger-strong: #b13f3f;
   --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;

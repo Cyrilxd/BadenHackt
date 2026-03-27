@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue'
 import { roomsApi, whitelistsApi, type Room, type Whitelist } from '../api'
+import DashboardPageTitle from './dashboard/DashboardPageTitle.vue'
+import RoomCard from './dashboard/RoomCard.vue'
 
 const rooms = ref<Room[]>([])
 const whitelists = ref<Whitelist[]>([])
@@ -220,66 +222,30 @@ const selectedRoom = computed(() =>
 
 <template>
   <div class="dashboard">
-    <div class="dashboard-header">
-      <div>
-        <p class="dashboard-eyebrow">Übersicht</p>
-        <h2>Zimmersteuerung</h2>
-      </div>
-      <img src="/zB_Logo.png" alt="zB Logo" class="header-logo" />
-    </div>
+    <DashboardPageTitle eyebrow="Übersicht" title="Zimmersteuerung" />
 
     <p v-if="error" class="error-banner">{{ error }}</p>
 
     <div v-if="loading && rooms.length === 0" class="loading">Lädt Daten...</div>
 
     <section v-else class="room-grid">
-      <article
+      <RoomCard
         v-for="room in rooms"
         :key="room.id"
-        class="room-card"
-        :class="{
-          'room-card-selected': selectedRoomId === room.id,
-          'room-card-disabled': !room.internet_enabled
-        }"
-        @click="handleRoomCardClick(room)"
-      >
-        <header class="room-head">
-          <h3>{{ room.name }}</h3>
-          <span class="vlan-badge">VLAN {{ room.vlan_id }}</span>
-        </header>
-
-        <p class="subnet">{{ room.subnet }}</p>
-
-        <p class="status-pill" :class="room.internet_enabled ? 'status-on' : 'status-off'">
-          {{ room.internet_enabled ? 'Internet aktiv' : 'Internet gesperrt' }}
-        </p>
-
-        <div class="room-actions">
-          <button
-            class="btn-toggle"
-            :class="room.internet_enabled ? 'btn-disable' : 'btn-enable'"
-            :disabled="loading"
-            @click.stop="toggleInternet(room)"
-          >
-            {{ room.internet_enabled ? 'Sperren' : 'Freigeben' }}
-          </button>
-
-          <button
-            class="btn-manage"
-            :disabled="loading"
-            @click.stop="openWhitelistModal(room.id, !room.internet_enabled)"
-          >
-            {{ room.internet_enabled ? 'Whitelist verwalten' : 'Whitelist direkt erfassen' }}
-          </button>
-        </div>
-      </article>
+        :room="room"
+        :selected="selectedRoomId === room.id"
+        :loading="loading"
+        @card-click="handleRoomCardClick"
+        @toggle="toggleInternet"
+        @manage="(r) => openWhitelistModal(r.id, !r.internet_enabled)"
+      />
     </section>
 
     <div v-if="modalVisible" class="modal-backdrop" @click.self="closeWhitelistModal">
       <section class="modal-card">
         <header class="modal-header">
           <div>
-            <p class="dashboard-eyebrow">Whitelist</p>
+            <p class="modal-eyebrow">Whitelist</p>
             <h3>{{ selectedRoom?.name }}</h3>
           </div>
           <button class="btn-close" @click="closeWhitelistModal">Schliessen</button>
@@ -349,36 +315,9 @@ const selectedRoom = computed(() =>
 
 <style scoped>
 .dashboard {
-  width: min(1200px, 100%);
+  width: min(1280px, 100%);
   margin: 0 auto;
   padding: 1.5rem;
-}
-
-.dashboard-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 1.2rem;
-}
-
-.dashboard-eyebrow {
-  margin: 0;
-  color: var(--color-muted);
-  font-size: 0.8rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.dashboard-header h2 {
-  margin: 0.25rem 0 0;
-  color: var(--color-text);
-  font-size: 1.5rem;
-}
-
-.header-logo {
-  width: 72px;
-  height: auto;
 }
 
 .error-banner {
@@ -393,111 +332,20 @@ const selectedRoom = computed(() =>
 
 .room-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  gap: 1rem;
+  gap: 1.25rem;
+  grid-template-columns: 1fr;
 }
 
-.room-card {
-  border: 1px solid var(--color-border);
-  border-radius: 16px;
-  background: #fff;
-  padding: 1rem;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-  cursor: pointer;
+@media (min-width: 700px) {
+  .room-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
-.room-card:hover {
-  border-color: var(--color-primary);
-  box-shadow: 0 12px 26px rgba(44, 100, 36, 0.1);
-}
-
-.room-card-selected {
-  border-color: var(--color-primary);
-}
-
-.room-card-disabled {
-  border-color: #e3c9c9;
-  background: #fffdfd;
-}
-
-.room-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.room-head h3 {
-  margin: 0;
-  color: var(--color-text);
-  font-size: 1.05rem;
-}
-
-.vlan-badge {
-  border-radius: 999px;
-  background: #edf6ea;
-  padding: 0.3rem 0.6rem;
-  font-size: 0.75rem;
-  color: #3a7440;
-  font-weight: 700;
-}
-
-.subnet {
-  margin: 0.75rem 0;
-  color: var(--color-muted);
-  font-family: var(--mono);
-  font-size: 0.82rem;
-}
-
-.status-pill {
-  display: inline-block;
-  border-radius: 999px;
-  padding: 0.35rem 0.65rem;
-  font-size: 0.78rem;
-  font-weight: 700;
-}
-
-.status-on {
-  background: #e7f7e3;
-  color: #2f7c22;
-}
-
-.status-off {
-  background: #faecec;
-  color: #a13333;
-}
-
-.room-actions {
-  margin-top: 0.9rem;
-  display: flex;
-  gap: 0.55rem;
-}
-
-.btn-toggle,
-.btn-manage {
-  flex: 1;
-  border: 0;
-  border-radius: 10px;
-  padding: 0.58rem 0.7rem;
-  font-size: 0.82rem;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.btn-manage {
-  border: 1px solid var(--color-border);
-  background: #fff;
-  color: var(--color-text);
-}
-
-.btn-enable {
-  background: var(--color-primary);
-  color: #fff;
-}
-
-.btn-disable {
-  background: var(--color-danger);
-  color: #fff;
+@media (min-width: 1100px) {
+  .room-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 .modal-backdrop {
@@ -531,6 +379,15 @@ const selectedRoom = computed(() =>
 .modal-header h3 {
   margin: 0;
   font-size: 1.1rem;
+}
+
+.modal-eyebrow {
+  margin: 0;
+  color: var(--color-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .btn-close {

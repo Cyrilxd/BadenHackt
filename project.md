@@ -114,6 +114,7 @@ BadenHackt/
 ├── frontend/
 │   ├── src/
 │   │   ├── components/
+│   │   │   ├── dashboard/     # RoomCard, PageTitle (modular)
 │   │   │   ├── Dashboard.vue  # Zimmer-Grid + Whitelist-Mgmt
 │   │   │   └── Login.vue      # Login-Formular
 │   │   ├── tailwind-plus/
@@ -142,6 +143,12 @@ BadenHackt/
 | VITE_API_URL | Backend URL (Dev) | http://localhost:8000                |
 
 ## Changelog
+
+### 2026-03-27 - Dashboard Feintuning (Grid, Grün, Modularisierung)
+- `frontend/src/components/dashboard/RoomCard.vue` + `DashboardPageTitle.vue`: Zimmerkarten und Titel ausgelagert.
+- Dashboard: zweites Logo im Content entfernt (Logo nur noch im weissen Header).
+- Raster: maximal 3 Spalten (1 / 2 / 3 je Viewport), breitere Karten; „Sperren“-Button in Status-Grün, schlankere Buttons.
+- `style.css`: gemeinsame Status-Farben als CSS-Variablen (`--color-status-on-*`).
 
 ### 2026-03-27 - Frontend UI Redesign (grün, logo-basiert)
 - `frontend/public/zB_Logo.png`: neues zB-Branding im Projekt integriert.
