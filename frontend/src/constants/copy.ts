@@ -131,8 +131,8 @@ export const copy = {
     eyebrow: "Zeitsteuerung",
     close: "Schliessen",
     enabled: "Täglichen Zeitplan für dieses Zimmer aktivieren",
-    openTime: "Offen ab",
-    lockTime: "Sperren ab",
+    openTime: "Sperrung endet um",
+    lockTime: "Sperrung beginnt um",
     clearOverride:
       "Manuelle Übersteuerung beenden und wieder dem Zeitplan folgen",
     save: "Zeitplan speichern",

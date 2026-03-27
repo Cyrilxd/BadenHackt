@@ -61,11 +61,14 @@ const scheduleSummary = computed(() => {
             <span>{{ copy.schedule.enabled }}</span>
         </label>
 
-        <div class="time-grid" :class="{ 'time-grid-disabled': !scheduleEnabled }">
+        <div
+            class="time-grid"
+            :class="{ 'time-grid-disabled': !scheduleEnabled }"
+        >
             <label>
-                <span>{{ copy.schedule.openTime }}</span>
+                <span>{{ copy.schedule.lockTime }}</span>
                 <input
-                    v-model="scheduleOpenTime"
+                    v-model="scheduleLockTime"
                     type="time"
                     class="field"
                     :disabled="!scheduleEnabled"
@@ -73,9 +76,9 @@ const scheduleSummary = computed(() => {
             </label>
 
             <label>
-                <span>{{ copy.schedule.lockTime }}</span>
+                <span>{{ copy.schedule.openTime }}</span>
                 <input
-                    v-model="scheduleLockTime"
+                    v-model="scheduleOpenTime"
                     type="time"
                     class="field"
                     :disabled="!scheduleEnabled"
