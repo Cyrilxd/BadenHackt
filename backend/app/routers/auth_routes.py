@@ -5,6 +5,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from .. import auth
+from ..audit import AuditAction, log_action
 from ..database import get_db
 from ..schemas import Token
 
@@ -38,6 +39,12 @@ async def login(
         auth_source = "local"
 
     if not user:
+        log_action(
+            db,
+            username=form_data.username,
+            action=AuditAction.LOGIN_FAILED,
+            success=False,
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
@@ -46,6 +53,13 @@ async def login(
 
     access_token = auth.create_access_token(
         data={"sub": user.username, "auth_source": auth_source}
+    )
+
+    log_action(
+        db,
+        username=user.username,
+        action=AuditAction.LOGIN_SUCCESS,
+        detail={"auth_source": auth_source},
     )
 
     return {

@@ -6,7 +6,7 @@ from fastapi import FastAPI, Request, Response
 from . import firewall
 from .database import SessionLocal, init_db
 from .init_data import init_test_data
-from .routers import auth_routes, room_routes, whitelist_routes
+from .routers import audit_routes, auth_routes, room_routes, whitelist_routes
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -49,6 +49,7 @@ async def add_cors_headers(request: Request, call_next):
 app.include_router(auth_routes.router)
 app.include_router(room_routes.router)
 app.include_router(whitelist_routes.router)
+app.include_router(audit_routes.router)
 
 
 @app.get("/api/health")

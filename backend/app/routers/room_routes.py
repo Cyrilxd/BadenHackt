@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from .. import auth, firewall
+from ..audit import AuditAction, log_action
 from ..database import Room, User, get_db
 from ..schemas import RoomResponse, ToggleResponse
 
@@ -51,6 +52,14 @@ async def toggle_internet(
         "enabled" if enable else "disabled",
         room.name,
         room.vlan_id,
+    )
+
+    log_action(
+        db,
+        username=current_user.username,
+        action=AuditAction.INTERNET_TOGGLE,
+        target=f"{room.name} (VLAN {room.vlan_id})",
+        detail={"enabled": enable},
     )
 
     return {"success": True, "internet_enabled": enable, "room": room.name}

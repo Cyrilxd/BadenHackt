@@ -79,6 +79,28 @@ export const roomsApi = {
   },
 };
 
+export interface AuditEntry {
+  id:        number;
+  timestamp: string;
+  username:  string;
+  action:    string;
+  target:    string | null;
+  detail:    string | null;
+  success:   boolean;
+}
+
+export const auditApi = {
+  getAuditLogs: async (params?: {
+    username?: string;
+    action?: string;
+    success?: boolean;
+    limit?: number;
+  }): Promise<AuditEntry[]> => {
+    const response = await api.get<AuditEntry[]>('/api/audit', { params });
+    return response.data;
+  },
+};
+
 export const whitelistsApi = {
   getWhitelists: async (roomId?: number): Promise<Whitelist[]> => {
     const params = roomId ? { room_id: roomId } : {};

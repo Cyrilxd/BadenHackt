@@ -5,6 +5,8 @@ import { copy } from '../constants/copy'
 import DashboardPageTitle from './dashboard/DashboardPageTitle.vue'
 import RoomCard from './dashboard/RoomCard.vue'
 import WhitelistModal from './dashboard/WhitelistModal.vue'
+import AuditLog from './dashboard/AuditLog.vue'
+import UiButton from './ui/UiButton.vue'
 import UiToast from './ui/UiToast.vue'
 import UiConfirm from './ui/UiConfirm.vue'
 
@@ -48,6 +50,8 @@ function handleConfirmOk() {
 function handleConfirmCancel() {
   confirmDialog.value = null
 }
+
+const auditVisible = ref(false)
 
 const showWhitelistForm = ref(false)
 const newWhitelistName = ref('')
@@ -313,10 +317,15 @@ async function doDeleteWhitelist(id: number) {
 
 <template>
   <div class="dashboard">
-    <DashboardPageTitle
-      :eyebrow="copy.dashboard.eyebrowOverview"
-      :title="copy.dashboard.titleRooms"
-    />
+    <div class="dashboard-header">
+      <DashboardPageTitle
+        :eyebrow="copy.dashboard.eyebrowOverview"
+        :title="copy.dashboard.titleRooms"
+      />
+      <UiButton variant="light" slim @click="auditVisible = true">
+        {{ copy.audit.openButton }}
+      </UiButton>
+    </div>
 
     <p v-if="error" class="error-banner">{{ error }}</p>
 
@@ -358,6 +367,8 @@ async function doDeleteWhitelist(id: number) {
       @toggle-active="toggleWhitelistActive"
     />
 
+    <AuditLog :open="auditVisible" @close="auditVisible = false" />
+
     <Transition name="toast">
       <UiToast v-if="toast" :message="toast.message" :type="toast.type" />
     </Transition>
@@ -380,6 +391,14 @@ async function doDeleteWhitelist(id: number) {
   width: min(var(--layout-dashboard-max), 100%);
   margin: 0 auto;
   padding: 1.5rem;
+}
+
+.dashboard-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.25rem;
 }
 
 .error-banner {

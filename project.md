@@ -51,12 +51,24 @@ Internet → Firewall → Perimeter Firewall (Docker) → 7 VLANs
 | internet_enabled | BOOLEAN | Default: True              |
 
 ### whitelist_templates
-| Spalte  | Typ     | Beschreibung                    |
-|---------|---------|----------------------------------|
-| id      | INTEGER | Primary Key, Auto-Increment      |
-| name    | TEXT    | z.B. "Google Suite"              |
-| urls    | TEXT    | JSON-Array als String            |
-| room_id | INTEGER | FK → rooms.id                    |
+| Spalte    | Typ     | Beschreibung                    |
+|-----------|---------|----------------------------------|
+| id        | INTEGER | Primary Key, Auto-Increment      |
+| name      | TEXT    | z.B. "Google Suite"              |
+| urls      | TEXT    | JSON-Array als String            |
+| room_id   | INTEGER | FK → rooms.id                    |
+| is_active | BOOLEAN | Whitelist aktiv (Default: True)  |
+
+### audit_logs
+| Spalte    | Typ      | Beschreibung                                   |
+|-----------|----------|------------------------------------------------|
+| id        | INTEGER  | Primary Key, Auto-Increment                    |
+| timestamp | DATETIME | UTC, Index                                     |
+| username  | TEXT     | Handelnder Benutzer, Index                     |
+| action    | TEXT     | Aktionstyp (z. B. internet_toggle), Index      |
+| target    | TEXT     | Zielobjekt (z. B. "Zimmer 1 (VLAN 18)"), opt. |
+| detail    | TEXT     | JSON-String mit Zusatzinfos, optional          |
+| success   | BOOLEAN  | True = erfolgreich, False = gescheitert        |
 
 ## VLANs / Schulzimmer
 
@@ -74,13 +86,16 @@ Internet → Firewall → Perimeter Firewall (Docker) → 7 VLANs
 
 | Methode | Pfad                      | Beschreibung              | Auth |
 |---------|---------------------------|---------------------------|------|
-| POST    | /api/login                | Login, JWT-Token zurück   | Nein |
-| GET     | /api/rooms                | Alle 7 Zimmer abrufen     | JWT  |
-| POST    | /api/rooms/{id}/toggle    | Internet EIN/AUS          | JWT  |
-| GET     | /api/whitelists           | Whitelists (opt. room_id) | JWT  |
-| POST    | /api/whitelists           | Whitelist erstellen        | JWT  |
-| DELETE  | /api/whitelists/{id}      | Whitelist löschen          | JWT  |
-| GET     | /api/health               | Health Check               | Nein |
+| POST    | /api/login                | Login, JWT-Token zurück           | Nein |
+| GET     | /api/rooms                | Alle 7 Zimmer abrufen             | JWT  |
+| POST    | /api/rooms/{id}/toggle    | Internet EIN/AUS                  | JWT  |
+| GET     | /api/whitelists           | Whitelists (opt. room_id)         | JWT  |
+| POST    | /api/whitelists           | Whitelist erstellen               | JWT  |
+| PUT     | /api/whitelists/{id}      | Whitelist aktualisieren           | JWT  |
+| PATCH   | /api/whitelists/{id}/toggle | Whitelist aktivieren/deaktivieren | JWT  |
+| DELETE  | /api/whitelists/{id}      | Whitelist löschen                 | JWT  |
+| GET     | /api/audit                | Audit-Log (filter: user/action/success/limit) | JWT  |
+| GET     | /api/health               | Health Check                      | Nein |
 
 ## Test-Benutzer
 
@@ -105,6 +120,7 @@ BadenHackt/
 │   │   ├── firewall.py      # nftables Management
 │   │   ├── schemas.py       # Pydantic-Modelle (inkl. Whitelist-URLs)
 │   │   ├── validators.py    # Whitelist-Host-Extraktion + Validierung
+│   │   ├── audit.py         # AuditAction Enum + log_action()
 │   │   └── init_data.py     # Testdaten-Initialisierung
 │   ├── tests/               # pytest (dev: requirements-dev.txt)
 │   ├── schema.sql           # DB-Schema (Referenz)
@@ -114,7 +130,7 @@ BadenHackt/
 ├── frontend/
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── dashboard/     # RoomCard, PageTitle, WhitelistModal
+│   │   │   ├── dashboard/     # RoomCard, PageTitle, WhitelistModal, AuditLog
 │   │   │   ├── layout/        # AppTopBar
 │   │   │   ├── ui/            # UiButton, UiModal (wiederverwendbar)
 │   │   │   ├── Dashboard.vue  # Orchestrierung Zimmer + Modal
@@ -147,6 +163,21 @@ BadenHackt/
 | VITE_API_URL | Backend URL (Dev) | http://localhost:8000                |
 
 ## Changelog
+
+### 2026-03-27 - Audit-Log (persistent, vollständig integriert)
+- `backend/app/audit.py`: `AuditAction` Enum + `log_action()` — typsicher, kein Freitext in Routen.
+- `backend/app/database.py`: `AuditLog`-Modell (timestamp/username/action/target/detail/success, alle mit Index).
+- `backend/app/schemas.py`: `AuditLogResponse` Pydantic-Schema.
+- `backend/app/routers/audit_routes.py`: `GET /api/audit` (JWT-geschützt, filter via query params: username/action/success/limit).
+- `backend/app/main.py`: `audit_routes` Router eingebunden.
+- `auth_routes.py`: Login-Erfolg (`login_success`) und Login-Fehler (`login_failed`) protokolliert.
+- `room_routes.py`: Internet-Toggle (`internet_toggle`) protokolliert.
+- `whitelist_routes.py`: Erstellen/Aktualisieren/Löschen/Toggle protokolliert.
+- `backend/tests/test_audit.py`: Unit- und API-Tests für `log_action()` und `GET /api/audit`.
+- `frontend/src/api.ts`: `AuditEntry`-Interface + `auditApi.getAuditLogs()`.
+- `frontend/src/constants/copy.ts`: `copy.audit.*` — alle Texte zentral.
+- `frontend/src/components/dashboard/AuditLog.vue`: Tabelle neueste-zuerst, Filter-Ready, Badges OK/Fehler, Zeitformatierung CH.
+- `frontend/src/components/Dashboard.vue`: "Protokoll"-Button rechts im Header öffnet `AuditLog`-Modal.
 
 ### 2026-03-27 - Frontend Architektur (pitch-tauglich, ohne Vendor-Dump)
 - **Kein** `tailwind-plus`-Ordner im App-Repo: keine hunderten ungenutzten UI-Dateien; bei Bedarf externe Tailwind-UI-Referenz verlinken, nicht committen.

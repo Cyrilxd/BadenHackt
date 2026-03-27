@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from .. import auth, firewall
+from ..audit import AuditAction, log_action
 from ..database import Room, User, WhitelistTemplate, get_db
 from ..schemas import (
     DeleteResponse,
@@ -80,6 +81,14 @@ async def create_whitelist(
         template.is_active,
     )
 
+    log_action(
+        db,
+        username=current_user.username,
+        action=AuditAction.WHITELIST_CREATE,
+        target=f"{whitelist.name} → {room.name}",
+        detail={"urls": whitelist.urls, "active": template.is_active},
+    )
+
     return {
         "id": template.id,
         "name": template.name,
@@ -138,6 +147,14 @@ async def update_whitelist(
         template.is_active,
     )
 
+    log_action(
+        db,
+        username=current_user.username,
+        action=AuditAction.WHITELIST_UPDATE,
+        target=f"{template.name} → {room.name}",
+        detail={"urls": whitelist.urls, "active": template.is_active},
+    )
+
     return {
         "id": template.id,
         "name": template.name,
@@ -184,6 +201,14 @@ async def toggle_whitelist(
         template.is_active,
     )
 
+    log_action(
+        db,
+        username=current_user.username,
+        action=AuditAction.WHITELIST_TOGGLE,
+        target=template.name,
+        detail={"active": template.is_active},
+    )
+
     return {
         "id": template.id,
         "name": template.name,
@@ -223,5 +248,12 @@ async def delete_whitelist(
     db.commit()
 
     logger.info("User %s deleted whitelist '%s'", current_user.username, template_name)
+
+    log_action(
+        db,
+        username=current_user.username,
+        action=AuditAction.WHITELIST_DELETE,
+        target=template_name,
+    )
 
     return {"success": True}

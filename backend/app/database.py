@@ -1,10 +1,12 @@
 import json
 import os
+from datetime import datetime, timezone
 from typing import List
 
 from sqlalchemy import (
     Boolean,
     Column,
+    DateTime,
     ForeignKey,
     Integer,
     String,
@@ -98,6 +100,31 @@ class WhitelistTemplate(Base):
         return (
             f"<WhitelistTemplate {self.name} "
             f"(room_id={self.room_id}, is_active={self.is_active})>"
+        )
+
+
+class AuditLog(Base):
+    """Persistentes Protokoll aller sicherheitsrelevanten Aktionen."""
+
+    __tablename__ = "audit_logs"
+
+    id        = Column(Integer, primary_key=True, index=True)
+    timestamp = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc),
+        index=True,
+    )
+    username  = Column(String, nullable=False, index=True)
+    action    = Column(String, nullable=False, index=True)
+    target    = Column(String, nullable=True)   # z. B. "Zimmer 2 (VLAN 19)"
+    detail    = Column(Text,   nullable=True)   # JSON-String mit Zusatzinfos
+    success   = Column(Boolean, nullable=False, default=True)
+
+    def __repr__(self) -> str:
+        return (
+            f"<AuditLog {self.action} by {self.username} "
+            f"@ {self.timestamp} success={self.success}>"
         )
 
 
