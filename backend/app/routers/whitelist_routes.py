@@ -5,7 +5,12 @@ from sqlalchemy.orm import Session
 
 from .. import auth
 from ..database import Room, User, WhitelistTemplate, get_db
-from ..schemas import DeleteResponse, WhitelistCreate, WhitelistResponse
+from ..schemas import (
+    DeleteResponse,
+    WhitelistCreate,
+    WhitelistResponse,
+    WhitelistUpdate,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +73,45 @@ async def create_whitelist(
     }
 
 
+@router.put("/whitelists/{whitelist_id}", response_model=WhitelistResponse)
+async def update_whitelist(
+    whitelist_id: int,
+    whitelist: WhitelistUpdate,
+    current_user: User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+):
+    template = (
+        db.query(WhitelistTemplate).filter(WhitelistTemplate.id == whitelist_id).first()
+    )
+    if not template:
+        raise HTTPException(status_code=404, detail="Whitelist not found")
+
+    room = db.query(Room).filter(Room.id == whitelist.room_id).first()
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+
+    template.name = whitelist.name
+    template.url_list = whitelist.urls
+    template.room_id = whitelist.room_id
+
+    db.commit()
+    db.refresh(template)
+
+    logger.info(
+        "User %s updated whitelist '%s' for %s",
+        current_user.username,
+        template.name,
+        room.name,
+    )
+
+    return {
+        "id": template.id,
+        "name": template.name,
+        "urls": template.url_list,
+        "room_id": template.room_id,
+    }
+
+
 @router.delete("/whitelists/{whitelist_id}", response_model=DeleteResponse)
 async def delete_whitelist(
     whitelist_id: int,
@@ -75,9 +119,7 @@ async def delete_whitelist(
     db: Session = Depends(get_db),
 ):
     template = (
-        db.query(WhitelistTemplate)
-        .filter(WhitelistTemplate.id == whitelist_id)
-        .first()
+        db.query(WhitelistTemplate).filter(WhitelistTemplate.id == whitelist_id).first()
     )
     if not template:
         raise HTTPException(status_code=404, detail="Whitelist not found")

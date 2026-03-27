@@ -8,6 +8,8 @@ services:
       - ./data:/app/data
     environment:
       - PYTHONUNBUFFERED=1
+      - DATABASE_URL=${DATABASE_URL:-sqlite:////app/data/internet_control.db}
+      - DATABASE_PATH=${DATABASE_PATH:-/app/data/internet_control.db}
       - SECRET_KEY=${SECRET_KEY:-hackathon-2026-change-in-production}
       - AUTH_MODE=${AUTH_MODE:-ldap}
       - LDAP_HOST=${LDAP_HOST:-ldap}
