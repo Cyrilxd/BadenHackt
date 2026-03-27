@@ -9,6 +9,17 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
       - SECRET_KEY=${SECRET_KEY:-hackathon-2026-change-in-production}
+      - AUTH_MODE=${AUTH_MODE:-ldap}
+      - LDAP_HOST=${LDAP_HOST:-ldap}
+      - LDAP_PORT=${LDAP_PORT:-389}
+      - LDAP_BASE_DN=${LDAP_BASE_DN:-dc=hackathon,dc=local}
+      - LDAP_BIND_DN=${LDAP_BIND_DN:-cn=admin,dc=hackathon,dc=local}
+      - LDAP_BIND_PASSWORD=${LDAP_BIND_PASSWORD:-admin}
+      - LDAP_USER_SEARCH_BASE=${LDAP_USER_SEARCH_BASE:-ou=users,dc=hackathon,dc=local}
+      - LDAP_USER_SEARCH_FILTER=${LDAP_USER_SEARCH_FILTER:-(uid={username})}
+    depends_on:
+      ldap:
+        condition: service_healthy
     restart: unless-stopped
 
   frontend:
@@ -20,4 +31,30 @@ services:
       - "80:80"
     depends_on:
       - backend
+    restart: unless-stopped
+
+  ldap:
+    build:
+      context: ./docker/openldap
+      dockerfile: Dockerfile
+    container_name: internet-control-ldap
+    ports:
+      - "389:389"
+    environment:
+      - LDAP_ORGANISATION=Baden Hackt
+      - LDAP_DOMAIN=hackathon.local
+      - LDAP_ADMIN_PASSWORD=admin
+      - LDAP_CONFIG_PASSWORD=config
+      - LDAP_TLS=false
+      - KEEP_EXISTING_CONFIG=false
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "ldapwhoami -x -H ldap://localhost:389 -D 'cn=admin,dc=hackathon,dc=local' -w admin >/dev/null 2>&1",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
     restart: unless-stopped

@@ -1,17 +1,21 @@
-from contextlib import asynccontextmanager
-from fastapi import FastAPI, Depends, HTTPException, status, Request, Response
-from fastapi.security import OAuth2PasswordRequestForm
-from fastapi.middleware.cors import CORSMiddleware
-from starlette.middleware.base import BaseHTTPMiddleware
-from sqlalchemy.orm import Session
 import json
 import logging
+from contextlib import asynccontextmanager
+
+from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
+from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy.orm import Session
 
 from . import auth, firewall
-from .database import get_db, init_db, User, Room, WhitelistTemplate
+from .database import Room, User, WhitelistTemplate, get_db
+from .init_data import init_test_data
 from .schemas import (
-    Token, RoomResponse, ToggleResponse,
-    WhitelistCreate, WhitelistResponse, DeleteResponse,
+    DeleteResponse,
+    RoomResponse,
+    ToggleResponse,
+    Token,
+    WhitelistCreate,
+    WhitelistResponse,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -20,12 +24,13 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    init_db()
-    logger.info("Database initialized")
+    init_test_data()
+    logger.info("Database initialized and seeded")
     yield
 
 
 app = FastAPI(title="Internet EIN/AUS API", version="2.0.0", lifespan=lifespan)
+
 
 # Custom CORS handler as middleware
 @app.middleware("http")
@@ -35,13 +40,13 @@ async def add_cors_headers(request: Request, call_next):
         response = Response(status_code=200)
     else:
         response = await call_next(request)
-    
+
     # Add CORS headers to ALL responses
     response.headers["Access-Control-Allow-Origin"] = "*"
     response.headers["Access-Control-Allow-Methods"] = "*"
     response.headers["Access-Control-Allow-Headers"] = "*"
     response.headers["Access-Control-Max-Age"] = "3600"
-    
+
     return response
 
 
@@ -50,16 +55,35 @@ async def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
     db: Session = Depends(get_db),
 ):
-    user = db.query(User).filter(User.username == form_data.username).first()
+    user = None
+    auth_source = "local"
 
-    if not user or not auth.verify_password(form_data.password, user.password_hash):
+    if auth.ldap_enabled():
+        try:
+            user = auth.authenticate_ldap_user(form_data.username, form_data.password)
+            if user:
+                auth_source = "ldap"
+        except Exception as exc:
+            logger.exception("LDAP authentication failed for %s", form_data.username)
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="LDAP authentication service unavailable",
+            ) from exc
+
+    if not user and auth.get_auth_mode() != "ldap":
+        user = auth.authenticate_local_user(form_data.username, form_data.password, db)
+        auth_source = "local"
+
+    if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    access_token = auth.create_access_token(data={"sub": user.username})
+    access_token = auth.create_access_token(
+        data={"sub": user.username, "auth_source": auth_source}
+    )
 
     return {
         "access_token": access_token,
@@ -159,7 +183,9 @@ async def create_whitelist(
 
     logger.info(
         "User %s created whitelist '%s' for %s",
-        current_user.username, whitelist.name, room.name,
+        current_user.username,
+        whitelist.name,
+        room.name,
     )
 
     return {
@@ -176,7 +202,9 @@ async def delete_whitelist(
     current_user: User = Depends(auth.get_current_user),
     db: Session = Depends(get_db),
 ):
-    template = db.query(WhitelistTemplate).filter(WhitelistTemplate.id == whitelist_id).first()
+    template = (
+        db.query(WhitelistTemplate).filter(WhitelistTemplate.id == whitelist_id).first()
+    )
     if not template:
         raise HTTPException(status_code=404, detail="Whitelist not found")
 
@@ -192,4 +220,3 @@ async def delete_whitelist(
 @app.get("/api/health")
 async def health_check():
     return {"status": "ok", "service": "internet-control-api", "version": "2.0.0"}
-

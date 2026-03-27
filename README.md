@@ -77,6 +77,18 @@ docker-compose logs -f
 | mueller  | admin123 | Teacher |
 | schmidt  | admin123 | Teacher |
 
+Mit der Compose-Umgebung läuft jetzt zusätzlich ein OpenLDAP-Testverzeichnis auf `ldap://localhost:389`. Das Backend verwendet standardmässig `AUTH_MODE=ldap` und authentifiziert die gleichen Test-Accounts gegen LDAP.
+
+### LDAP Test Directory
+
+- Base DN: `dc=hackathon,dc=local`
+- Bind DN: `cn=admin,dc=hackathon,dc=local`
+- Bind Password: `admin`
+- User Search Base: `ou=users,dc=hackathon,dc=local`
+- Test Group: `cn=teachers,ou=groups,dc=hackathon,dc=local`
+
+Die LDIF-Seed-Daten liegen in [docker/openldap/ldif/10-users-and-groups.ldif](/Users/daniel/dev/BadenHackt/docker/openldap/ldif/10-users-and-groups.ldif).
+
 ## 🏫 Räume & VLANs
 
 | Raum     | VLAN ID | Subnet         |
@@ -167,7 +179,7 @@ backend:
 
 ### LDAP-Integration (TODO)
 
-Für Produktion muss LDAP gegen Active Directory integriert werden:
+Für Produktion kann die Test-Konfiguration durch das echte Verzeichnis ersetzt werden:
 
 **Benötigte Informationen:**
 - LDAP Server Hostname/IP
@@ -176,9 +188,9 @@ Für Produktion muss LDAP gegen Active Directory integriert werden:
 - Bind-Methode (Simple Bind oder Service Account)
 
 **Integration:**
-1. `python-ldap` oder `ldap3` zu `requirements.txt` hinzufügen
-2. `auth.py` anpassen für LDAP-Authentifizierung
-3. Test-User durch LDAP-Abfrage ersetzen
+1. `AUTH_MODE=ldap` oder `AUTH_MODE=auto` setzen
+2. `LDAP_HOST`, `LDAP_PORT`, `LDAP_BASE_DN`, `LDAP_BIND_DN`, `LDAP_BIND_PASSWORD` anpassen
+3. Falls nötig `LDAP_USER_SEARCH_BASE` und `LDAP_USER_SEARCH_FILTER` für Active Directory ändern
 
 ## 🐛 Troubleshooting
 

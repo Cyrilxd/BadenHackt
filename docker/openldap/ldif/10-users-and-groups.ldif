@@ -1,0 +1,58 @@
+dn: ou=users,dc=hackathon,dc=local
+objectClass: organizationalUnit
+ou: users
+
+dn: ou=groups,dc=hackathon,dc=local
+objectClass: organizationalUnit
+ou: groups
+
+dn: uid=lehrer,ou=users,dc=hackathon,dc=local
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+cn: Test Lehrer
+sn: Lehrer
+uid: lehrer
+uidNumber: 10000
+gidNumber: 5000
+homeDirectory: /home/lehrer
+loginShell: /bin/bash
+mail: lehrer@hackathon.local
+userPassword: admin123
+
+dn: uid=mueller,ou=users,dc=hackathon,dc=local
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+cn: Herr Mueller
+sn: Mueller
+uid: mueller
+uidNumber: 10001
+gidNumber: 5000
+homeDirectory: /home/mueller
+loginShell: /bin/bash
+mail: mueller@hackathon.local
+userPassword: admin123
+
+dn: uid=schmidt,ou=users,dc=hackathon,dc=local
+objectClass: inetOrgPerson
+objectClass: posixAccount
+objectClass: shadowAccount
+cn: Frau Schmidt
+sn: Schmidt
+uid: schmidt
+uidNumber: 10002
+gidNumber: 5000
+homeDirectory: /home/schmidt
+loginShell: /bin/bash
+mail: schmidt@hackathon.local
+userPassword: admin123
+
+dn: cn=teachers,ou=groups,dc=hackathon,dc=local
+objectClass: groupOfNames
+objectClass: posixGroup
+cn: teachers
+gidNumber: 5000
+member: uid=lehrer,ou=users,dc=hackathon,dc=local
+member: uid=mueller,ou=users,dc=hackathon,dc=local
+member: uid=schmidt,ou=users,dc=hackathon,dc=local
