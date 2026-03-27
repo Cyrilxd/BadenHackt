@@ -114,15 +114,19 @@ BadenHackt/
 ├── frontend/
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── dashboard/     # RoomCard, PageTitle (modular)
-│   │   │   ├── Dashboard.vue  # Zimmer-Grid + Whitelist-Mgmt
-│   │   │   └── Login.vue      # Login-Formular
-│   │   ├── tailwind-plus/
-│   │   │   └── vue/           # Tailwind Plus (Vue) UI-Blöcke (Referenz, 657 Dateien)
-│   │   ├── api.ts             # Axios API-Client
-│   │   ├── App.vue            # Root-Komponente + Auth-State
-│   │   ├── main.ts            # Vue App Bootstrap
-│   │   └── style.css          # Globale Styles
+│   │   │   ├── dashboard/     # RoomCard, PageTitle, WhitelistModal
+│   │   │   ├── layout/        # AppTopBar
+│   │   │   ├── ui/            # UiButton, UiModal (wiederverwendbar)
+│   │   │   ├── Dashboard.vue  # Orchestrierung Zimmer + Modal
+│   │   │   └── Login.vue
+│   │   ├── constants/
+│   │   │   └── copy.ts        # Deutsche UI-Texte (eine Quelle)
+│   │   ├── styles/
+│   │   │   ├── tokens.css     # Design-Tokens (Farben, Radii, Layout)
+│   │   │   └── base.css       # Reset + body (importiert tokens)
+│   │   ├── api.ts
+│   │   ├── App.vue
+│   │   └── main.ts
 │   ├── public/
 │   │   └── zB_Logo.png        # Branding-Logo (Login + Dashboard)
 │   ├── index.html
@@ -144,15 +148,21 @@ BadenHackt/
 
 ## Changelog
 
+### 2026-03-27 - Frontend Architektur (pitch-tauglich, ohne Vendor-Dump)
+- **Kein** `tailwind-plus`-Ordner im App-Repo: keine hunderten ungenutzten UI-Dateien; bei Bedarf externe Tailwind-UI-Referenz verlinken, nicht committen.
+- `src/styles/tokens.css` + `base.css`: zentrale Design-Tokens; `main.ts` importiert nur `styles/base.css`.
+- `src/constants/copy.ts`: sichtbare DE-Texte gebündelt.
+- `components/ui/` (`UiButton`, `UiModal`), `components/layout/AppTopBar.vue`, `dashboard/WhitelistModal.vue`: klare Schichten, Darstellung unverändert zum letzten UI-Stand.
+
 ### 2026-03-27 - Dashboard Feintuning (Grid, Grün, Modularisierung)
 - `frontend/src/components/dashboard/RoomCard.vue` + `DashboardPageTitle.vue`: Zimmerkarten und Titel ausgelagert.
 - Dashboard: zweites Logo im Content entfernt (Logo nur noch im weissen Header).
 - Raster: maximal 3 Spalten (1 / 2 / 3 je Viewport), breitere Karten; „Sperren“-Button in Status-Grün, schlankere Buttons.
-- `style.css`: gemeinsame Status-Farben als CSS-Variablen (`--color-status-on-*`).
+- Design-Tokens: gemeinsame Status-Farben als CSS-Variablen (`--color-status-on-*`); später in `styles/tokens.css` konsolidiert.
 
 ### 2026-03-27 - Frontend UI Redesign (grün, logo-basiert)
 - `frontend/public/zB_Logo.png`: neues zB-Branding im Projekt integriert.
-- `frontend/src/App.vue` + `frontend/src/style.css`: neues Layout/Theme in Grün, Header mit Logo nach Login, konsistente Farb- und Abstands-Tokens.
+- `frontend/src/App.vue` + globale Styles: neues Layout/Theme in Grün, Header mit Logo nach Login.
 - `frontend/src/components/Login.vue`: Login visuell neu aufgebaut (Card-Layout mit Logo, klare Felder, gleiche Login-Logik).
 - `frontend/src/components/Dashboard.vue`: Zimmer-Karten neu gestaltet; Whitelist-Verwaltung in Modal/Card direkt pro Zimmer (inkl. direkter Eingabe bei gesperrtem Zimmer), ohne API- oder Business-Logikänderung.
 - Verifikation: `npm run build` im `frontend/` erfolgreich.

@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import type { Room } from '../../api'
+import { copy } from '../../constants/copy'
+import UiButton from '../ui/UiButton.vue'
 
 defineProps<{
   room: Room
@@ -25,34 +27,35 @@ const emit = defineEmits<{
   >
     <header class="room-head">
       <h3>{{ room.name }}</h3>
-      <span class="vlan-badge">VLAN {{ room.vlan_id }}</span>
+      <span class="vlan-badge">{{ copy.room.vlanPrefix }} {{ room.vlan_id }}</span>
     </header>
 
     <p class="subnet">{{ room.subnet }}</p>
 
     <p class="status-pill" :class="room.internet_enabled ? 'status-on' : 'status-off'">
-      {{ room.internet_enabled ? 'Internet aktiv' : 'Internet gesperrt' }}
+      {{ room.internet_enabled ? copy.room.statusOn : copy.room.statusOff }}
     </p>
 
     <div class="room-actions">
-      <button
+      <UiButton
         type="button"
-        class="btn btn-slim"
-        :class="room.internet_enabled ? 'btn-lock' : 'btn-unlock'"
+        slim
+        :variant="room.internet_enabled ? 'roomLock' : 'roomUnlock'"
         :disabled="loading"
         @click.stop="emit('toggle', room)"
       >
-        {{ room.internet_enabled ? 'Sperren' : 'Freigeben' }}
-      </button>
+        {{ room.internet_enabled ? copy.room.lock : copy.room.unlock }}
+      </UiButton>
 
-      <button
+      <UiButton
         type="button"
-        class="btn btn-slim btn-outline"
+        slim
+        variant="roomOutline"
         :disabled="loading"
         @click.stop="emit('manage', room)"
       >
-        {{ room.internet_enabled ? 'Whitelist verwalten' : 'Whitelist direkt erfassen' }}
-      </button>
+        {{ room.internet_enabled ? copy.room.manageWhitelist : copy.room.whitelistDirect }}
+      </UiButton>
     </div>
   </article>
 </template>
@@ -60,12 +63,12 @@ const emit = defineEmits<{
 <style scoped>
 .room-card {
   display: flex;
-  flex-direction: column;
   min-height: 168px;
+  flex-direction: column;
   cursor: pointer;
   border: 1px solid var(--color-border);
-  border-radius: 16px;
-  background: #fff;
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
   padding: 1rem 1.15rem 0.85rem;
   transition:
     border-color 0.15s ease,
@@ -74,7 +77,7 @@ const emit = defineEmits<{
 
 .room-card:hover {
   border-color: var(--color-primary);
-  box-shadow: 0 12px 26px rgba(44, 100, 36, 0.1);
+  box-shadow: var(--shadow-room-hover);
 }
 
 .room-card-selected {
@@ -82,8 +85,8 @@ const emit = defineEmits<{
 }
 
 .room-card-disabled {
-  border-color: #e3d4d4;
-  background: #fffdfd;
+  border-color: var(--color-room-disabled-border);
+  background: var(--color-room-disabled-bg);
 }
 
 .room-head {
@@ -102,7 +105,7 @@ const emit = defineEmits<{
 
 .vlan-badge {
   flex-shrink: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--color-status-on-bg);
   padding: 0.25rem 0.55rem;
   color: var(--color-status-on-fg);
@@ -113,14 +116,14 @@ const emit = defineEmits<{
 .subnet {
   margin: 0.55rem 0 0.45rem;
   color: var(--color-muted);
-  font-family: var(--mono);
+  font-family: var(--font-mono);
   font-size: 0.82rem;
 }
 
 .status-pill {
   display: inline-block;
   align-self: flex-start;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   padding: 0.28rem 0.6rem;
   font-size: 0.76rem;
   font-weight: 700;
@@ -141,50 +144,5 @@ const emit = defineEmits<{
   gap: 0.5rem;
   margin-top: auto;
   padding-top: 0.75rem;
-}
-
-.btn {
-  flex: 1;
-  border-radius: 8px;
-  font-size: 0.78rem;
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.btn-slim {
-  padding: 0.38rem 0.55rem;
-  line-height: 1.2;
-}
-
-.btn:disabled {
-  cursor: not-allowed;
-  opacity: 0.65;
-}
-
-/* „Sperren“ im gleichen Grün-Ton wie Status „Internet aktiv“ */
-.btn-lock {
-  border: 1px solid var(--color-status-on-border);
-  background: var(--color-status-on-bg);
-  color: var(--color-status-on-fg);
-}
-
-.btn-lock:hover:not(:disabled) {
-  background: #d8f0d0;
-}
-
-.btn-unlock {
-  border: 1px solid transparent;
-  background: linear-gradient(135deg, var(--color-primary), var(--color-primary-strong));
-  color: #fff;
-}
-
-.btn-outline {
-  border: 1px solid var(--color-border);
-  background: #fff;
-  color: var(--color-text);
-}
-
-.btn-outline:hover:not(:disabled) {
-  border-color: var(--color-primary);
 }
 </style>
