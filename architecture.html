@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Internet EIN/AUS - Architektur</title>
+    <title>Internet EIN/AUS - Architektur v2.0</title>
     <style>
         * {
             margin: 0;
@@ -27,8 +27,15 @@
         h1 {
             text-align: center;
             color: #333;
-            margin-bottom: 40px;
+            margin-bottom: 10px;
             font-size: 32px;
+        }
+        .version {
+            text-align: center;
+            color: #667eea;
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 40px;
         }
         .architecture {
             display: flex;
@@ -172,11 +179,73 @@
             font-weight: bold;
             color: #333;
         }
+        .user-flow {
+            margin-top: 40px;
+            padding: 20px;
+            background: #fff3e0;
+            border-radius: 12px;
+        }
+        .flow-steps {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .flow-step {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #ff6a00;
+        }
+        .flow-step-number {
+            background: #ff6a00;
+            color: white;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .flow-step-text {
+            color: #333;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        .highlight-box {
+            background: #fffbea;
+            border: 2px solid #ffd700;
+            padding: 20px;
+            border-radius: 12px;
+            margin-top: 20px;
+        }
+        .highlight-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #ff6a00;
+            margin-bottom: 10px;
+        }
+        .highlight-content {
+            color: #333;
+            line-height: 1.6;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>🌐 Internet EIN/AUS - System-Architektur</h1>
+        <div class="version">Version 2.0 - Multi-Room Support</div>
+        
+        <div class="highlight-box">
+            <div class="highlight-title">🎯 Neues Konzept: Alle Lehrer steuern alle Zimmer</div>
+            <div class="highlight-content">
+                <strong>Wichtig:</strong> Jeder angemeldete Lehrer kann ALLE 7 Schulzimmer steuern (Internet EIN/AUS).<br>
+                <strong>Whitelists</strong> sind jedoch <strong>PRO ZIMMER</strong> gespeichert (nicht pro User).<br>
+                → Vereinfachte Benutzerverwaltung, maximale Flexibilität für Lehrkräfte.
+            </div>
+        </div>
         
         <div class="architecture">
             <!-- Internet -->
@@ -209,7 +278,7 @@
                             <div class="service-details">
                                 • Nginx + Vue 3<br>
                                 • TypeScript<br>
-                                • TailwindCSS<br>
+                                • Multi-Room Dashboard<br>
                                 • Port: 8080
                             </div>
                         </div>
@@ -220,7 +289,7 @@
                             <div class="service-details">
                                 • FastAPI<br>
                                 • Python 3.11<br>
-                                • JWT Auth<br>
+                                • JWT Auth (alle → alle)<br>
                                 • Port: 8000
                             </div>
                         </div>
@@ -231,7 +300,7 @@
                             <div class="service-details">
                                 • URL-Filtering<br>
                                 • Per-VLAN ACLs<br>
-                                • Whitelist-Mgmt<br>
+                                • Whitelist PRO Zimmer<br>
                                 • Port: 3128
                             </div>
                         </div>
@@ -240,7 +309,9 @@
                         <div class="db-box">
                             <div class="service-title">💾 SQLite Database (Volume)</div>
                             <div class="service-details">
-                                users | rooms | whitelist_templates | room_status
+                                <strong>users:</strong> 3 Test-User (alle = global access)<br>
+                                <strong>rooms:</strong> 7 Zimmer (VLAN-Mapping)<br>
+                                <strong>whitelist_templates:</strong> URLs pro Zimmer
                             </div>
                         </div>
                     </div>
@@ -248,7 +319,7 @@
                     <div style="margin-top: 20px; padding: 15px; background: rgba(255,255,255,0.1); border-radius: 8px;">
                         <div class="service-title">🛡️ nftables (Host Network)</div>
                         <div class="service-details">
-                            Firewall-Rules pro VLAN • Internet EIN/AUS • Gesteuert via Backend
+                            Firewall-Rules pro VLAN • Internet EIN/AUS • Gesteuert via Backend API
                         </div>
                     </div>
                 </div>
@@ -296,6 +367,48 @@
             </div>
         </div>
 
+        <!-- User Flow -->
+        <div class="user-flow">
+            <div class="legend-title">👤 User Journey (v2.0)</div>
+            <div class="flow-steps">
+                <div class="flow-step">
+                    <div class="flow-step-number">1</div>
+                    <div class="flow-step-text">
+                        <strong>Login</strong><br>
+                        Lehrer meldet sich an (z.B. "mueller" / "admin123")
+                    </div>
+                </div>
+                <div class="flow-step">
+                    <div class="flow-step-number">2</div>
+                    <div class="flow-step-text">
+                        <strong>Dashboard</strong><br>
+                        Sieht alle 7 Zimmer auf einen Blick (Grid-Ansicht)
+                    </div>
+                </div>
+                <div class="flow-step">
+                    <div class="flow-step-number">3</div>
+                    <div class="flow-step-text">
+                        <strong>Zimmer wählen</strong><br>
+                        Klick auf beliebiges Zimmer → Whitelist-Management
+                    </div>
+                </div>
+                <div class="flow-step">
+                    <div class="flow-step-number">4</div>
+                    <div class="flow-step-text">
+                        <strong>Internet steuern</strong><br>
+                        Button "Sperren" / "Freigeben" → nftables Rule aktiviert
+                    </div>
+                </div>
+                <div class="flow-step">
+                    <div class="flow-step-number">5</div>
+                    <div class="flow-step-text">
+                        <strong>Whitelist</strong><br>
+                        URLs hinzufügen (z.B. "google.com") → Squid ACL Update
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Tech Stack -->
         <div class="tech-stack">
             <div class="legend-title">🔧 Tech Stack</div>
@@ -329,30 +442,69 @@
 
         <!-- Legend -->
         <div class="legend">
-            <div class="legend-title">📋 Features</div>
+            <div class="legend-title">📋 Features (v2.0)</div>
             <div class="legend-grid">
                 <div class="legend-item">
                     <div class="legend-color" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);"></div>
-                    <div>✅ Internet EIN/AUS pro Zimmer</div>
+                    <div>✅ Jeder Lehrer → ALLE 7 Zimmer steuern</div>
                 </div>
                 <div class="legend-item">
                     <div class="legend-color" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);"></div>
-                    <div>✅ URL-Whitelist (Domain-basiert)</div>
+                    <div>✅ Internet EIN/AUS pro Zimmer</div>
                 </div>
                 <div class="legend-item">
                     <div class="legend-color" style="background: linear-gradient(135deg, #0575e6 0%, #021b79 100%);"></div>
-                    <div>✅ Whitelist-Templates (Upload/Config)</div>
+                    <div>✅ URL-Whitelist PRO Zimmer</div>
                 </div>
                 <div class="legend-item">
                     <div class="legend-color" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);"></div>
-                    <div>✅ 7 User (1 Admin pro Zimmer)</div>
+                    <div>✅ Multi-Room Dashboard (Grid)</div>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: linear-gradient(135deg, #ee0979 0%, #ff6a00 100%);"></div>
+                    <div>✅ JWT Auth (vereinfacht)</div>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #ffd700;"></div>
+                    <div>🔜 LDAP-Integration (optional)</div>
                 </div>
             </div>
         </div>
 
+        <div style="margin-top: 40px; padding: 20px; background: #f0f0f0; border-radius: 12px;">
+            <div class="legend-title">🆚 Unterschied v1.0 → v2.0</div>
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr style="background: #667eea; color: white;">
+                    <th style="padding: 12px; text-align: left;">Aspekt</th>
+                    <th style="padding: 12px; text-align: left;">v1.0 (Alt)</th>
+                    <th style="padding: 12px; text-align: left;">v2.0 (Neu)</th>
+                </tr>
+                <tr style="background: white;">
+                    <td style="padding: 12px; border: 1px solid #ddd;"><strong>User-Modell</strong></td>
+                    <td style="padding: 12px; border: 1px solid #ddd;">7 User, je 1 pro Zimmer</td>
+                    <td style="padding: 12px; border: 1px solid #ddd;"><strong>3 User, alle → global</strong></td>
+                </tr>
+                <tr style="background: #f8f9fa;">
+                    <td style="padding: 12px; border: 1px solid #ddd;"><strong>Dashboard</strong></td>
+                    <td style="padding: 12px; border: 1px solid #ddd;">Nur 1 Zimmer sichtbar</td>
+                    <td style="padding: 12px; border: 1px solid #ddd;"><strong>Alle 7 Zimmer (Grid)</strong></td>
+                </tr>
+                <tr style="background: white;">
+                    <td style="padding: 12px; border: 1px solid #ddd;"><strong>Berechtigung</strong></td>
+                    <td style="padding: 12px; border: 1px solid #ddd;">1 Zimmer pro User</td>
+                    <td style="padding: 12px; border: 1px solid #ddd;"><strong>Alle Zimmer für alle</strong></td>
+                </tr>
+                <tr style="background: #f8f9fa;">
+                    <td style="padding: 12px; border: 1px solid #ddd;"><strong>Whitelist</strong></td>
+                    <td style="padding: 12px; border: 1px solid #ddd;">Pro User</td>
+                    <td style="padding: 12px; border: 1px solid #ddd;"><strong>Pro Zimmer</strong></td>
+                </tr>
+            </table>
+        </div>
+
         <div style="margin-top: 30px; text-align: center; color: #666; font-size: 14px;">
             <strong>Hackathon Challenge 1 - zB. Zentrum Bildung Baden</strong><br>
-            RaphiClaw 🦇 | 27. März 2026
+            RaphiClaw 🦇 | Version 2.0 | 27. März 2026
         </div>
     </div>
 </body>
