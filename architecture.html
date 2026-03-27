@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Internet EIN/AUS - Architektur</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 40px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 40px;
+            font-size: 32px;
+        }
+        .architecture {
+            display: flex;
+            flex-direction: column;
+            gap: 30px;
+        }
+        .layer {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            font-weight: bold;
+            font-size: 18px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        .box.internet {
+            background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+        }
+        .box.firewall {
+            background: linear-gradient(135deg, #ee0979 0%, #ff6a00 100%);
+        }
+        .box.docker {
+            background: linear-gradient(135deg, #0575e6 0%, #021b79 100%);
+            padding: 30px;
+        }
+        .docker-content {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .service {
+            background: rgba(255,255,255,0.15);
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            border-radius: 8px;
+            border: 2px solid rgba(255,255,255,0.3);
+        }
+        .service-title {
+            font-size: 16px;
+            margin-bottom: 10px;
+            color: #fff;
+        }
+        .service-details {
+            font-size: 12px;
+            opacity: 0.9;
+            line-height: 1.6;
+        }
+        .db-box {
+            grid-column: 1 / -1;
+            background: rgba(255,255,255,0.2);
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+        .vlans {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        .vlan {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        .vlan-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        .vlan-subnet {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        .arrow {
+            text-align: center;
+            font-size: 30px;
+            color: #667eea;
+            margin: 10px 0;
+        }
+        .legend {
+            margin-top: 40px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 12px;
+        }
+        .legend-title {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #333;
+        }
+        .legend-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .legend-color {
+            width: 30px;
+            height: 30px;
+            border-radius: 6px;
+        }
+        .tech-stack {
+            margin-top: 40px;
+            padding: 20px;
+            background: #e3f2fd;
+            border-radius: 12px;
+        }
+        .tech-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .tech-item {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .tech-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        .tech-value {
+            font-size: 14px;
+            font-weight: bold;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌐 Internet EIN/AUS - System-Architektur</h1>
+        
+        <div class="architecture">
+            <!-- Internet -->
+            <div class="layer">
+                <div class="box internet">
+                    ☁️ INTERNET
+                </div>
+            </div>
+
+            <div class="arrow">⬇️</div>
+
+            <!-- Firewall -->
+            <div class="layer">
+                <div class="box firewall">
+                    🔥 FIREWALL (extern)
+                </div>
+            </div>
+
+            <div class="arrow">⬇️</div>
+
+            <!-- Docker Stack -->
+            <div class="layer">
+                <div class="box docker">
+                    <div style="font-size: 22px; margin-bottom: 20px;">🐳 PERIMETER FIREWALL (Docker Host)</div>
+                    
+                    <div class="docker-content">
+                        <!-- Frontend -->
+                        <div class="service">
+                            <div class="service-title">📱 Frontend</div>
+                            <div class="service-details">
+                                • Nginx + Vue 3<br>
+                                • TypeScript<br>
+                                • TailwindCSS<br>
+                                • Port: 8080
+                            </div>
+                        </div>
+
+                        <!-- Backend -->
+                        <div class="service">
+                            <div class="service-title">⚙️ Backend</div>
+                            <div class="service-details">
+                                • FastAPI<br>
+                                • Python 3.11<br>
+                                • JWT Auth<br>
+                                • Port: 8000
+                            </div>
+                        </div>
+
+                        <!-- Squid -->
+                        <div class="service">
+                            <div class="service-title">🌐 Squid Proxy</div>
+                            <div class="service-details">
+                                • URL-Filtering<br>
+                                • Per-VLAN ACLs<br>
+                                • Whitelist-Mgmt<br>
+                                • Port: 3128
+                            </div>
+                        </div>
+
+                        <!-- Database -->
+                        <div class="db-box">
+                            <div class="service-title">💾 SQLite Database (Volume)</div>
+                            <div class="service-details">
+                                users | rooms | whitelist_templates | room_status
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 20px; padding: 15px; background: rgba(255,255,255,0.1); border-radius: 8px;">
+                        <div class="service-title">🛡️ nftables (Host Network)</div>
+                        <div class="service-details">
+                            Firewall-Rules pro VLAN • Internet EIN/AUS • Gesteuert via Backend
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="arrow">⬇️</div>
+
+            <!-- VLANs -->
+            <div class="vlans">
+                <div class="vlan">
+                    <div class="vlan-title">VLAN 18</div>
+                    <div class="vlan-subnet">10.3.18.0/24</div>
+                    <div class="vlan-subnet">Zimmer 1</div>
+                </div>
+                <div class="vlan">
+                    <div class="vlan-title">VLAN 19</div>
+                    <div class="vlan-subnet">10.3.19.0/24</div>
+                    <div class="vlan-subnet">Zimmer 2</div>
+                </div>
+                <div class="vlan">
+                    <div class="vlan-title">VLAN 20</div>
+                    <div class="vlan-subnet">10.3.20.0/24</div>
+                    <div class="vlan-subnet">Zimmer 3</div>
+                </div>
+                <div class="vlan">
+                    <div class="vlan-title">VLAN 21</div>
+                    <div class="vlan-subnet">10.3.21.0/24</div>
+                    <div class="vlan-subnet">Zimmer 4</div>
+                </div>
+                <div class="vlan">
+                    <div class="vlan-title">VLAN 22</div>
+                    <div class="vlan-subnet">10.3.22.0/24</div>
+                    <div class="vlan-subnet">Zimmer 5</div>
+                </div>
+                <div class="vlan">
+                    <div class="vlan-title">VLAN 118</div>
+                    <div class="vlan-subnet">10.3.118.0/24</div>
+                    <div class="vlan-subnet">Zimmer 6</div>
+                </div>
+                <div class="vlan">
+                    <div class="vlan-title">VLAN 119</div>
+                    <div class="vlan-subnet">10.3.119.0/24</div>
+                    <div class="vlan-subnet">Zimmer 7</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tech Stack -->
+        <div class="tech-stack">
+            <div class="legend-title">🔧 Tech Stack</div>
+            <div class="tech-grid">
+                <div class="tech-item">
+                    <div class="tech-label">Frontend</div>
+                    <div class="tech-value">Vue 3 + TypeScript + Vite</div>
+                </div>
+                <div class="tech-item">
+                    <div class="tech-label">Backend</div>
+                    <div class="tech-value">FastAPI + SQLAlchemy</div>
+                </div>
+                <div class="tech-item">
+                    <div class="tech-label">Database</div>
+                    <div class="tech-value">SQLite 3</div>
+                </div>
+                <div class="tech-item">
+                    <div class="tech-label">Firewall</div>
+                    <div class="tech-value">nftables</div>
+                </div>
+                <div class="tech-item">
+                    <div class="tech-label">Proxy</div>
+                    <div class="tech-value">Squid</div>
+                </div>
+                <div class="tech-item">
+                    <div class="tech-label">Deployment</div>
+                    <div class="tech-value">Docker Compose</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Legend -->
+        <div class="legend">
+            <div class="legend-title">📋 Features</div>
+            <div class="legend-grid">
+                <div class="legend-item">
+                    <div class="legend-color" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);"></div>
+                    <div>✅ Internet EIN/AUS pro Zimmer</div>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);"></div>
+                    <div>✅ URL-Whitelist (Domain-basiert)</div>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: linear-gradient(135deg, #0575e6 0%, #021b79 100%);"></div>
+                    <div>✅ Whitelist-Templates (Upload/Config)</div>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);"></div>
+                    <div>✅ 7 User (1 Admin pro Zimmer)</div>
+                </div>
+            </div>
+        </div>
+
+        <div style="margin-top: 30px; text-align: center; color: #666; font-size: 14px;">
+            <strong>Hackathon Challenge 1 - zB. Zentrum Bildung Baden</strong><br>
+            RaphiClaw 🦇 | 27. März 2026
+        </div>
+    </div>
+</body>
+</html>
