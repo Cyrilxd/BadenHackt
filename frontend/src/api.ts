@@ -49,6 +49,7 @@ export interface Whitelist {
   name: string;
   urls: string[];
   room_id: number;
+  is_active: boolean;
 }
 
 export const authApi = {
@@ -85,20 +86,40 @@ export const whitelistsApi = {
     return response.data;
   },
 
-  createWhitelist: async (name: string, urls: string[], roomId: number): Promise<Whitelist> => {
+  createWhitelist: async (
+    name: string,
+    urls: string[],
+    roomId: number,
+    isActive: boolean = true
+  ): Promise<Whitelist> => {
     const response = await api.post<Whitelist>('/api/whitelists', {
       name,
       urls,
       room_id: roomId,
+      is_active: isActive,
     });
     return response.data;
   },
 
-  updateWhitelist: async (id: number, name: string, urls: string[], roomId: number): Promise<Whitelist> => {
+  updateWhitelist: async (
+    id: number,
+    name: string,
+    urls: string[],
+    roomId: number,
+    isActive: boolean
+  ): Promise<Whitelist> => {
     const response = await api.put<Whitelist>(`/api/whitelists/${id}`, {
       name,
       urls,
       room_id: roomId,
+      is_active: isActive,
+    });
+    return response.data;
+  },
+
+  toggleWhitelist: async (id: number, isActive: boolean): Promise<Whitelist> => {
+    const response = await api.patch<Whitelist>(`/api/whitelists/${id}/toggle`, {
+      is_active: isActive,
     });
     return response.data;
   },

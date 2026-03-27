@@ -21,5 +21,6 @@ CREATE TABLE IF NOT EXISTS whitelist_templates (
     name TEXT NOT NULL,
     urls TEXT NOT NULL,
     room_id INTEGER NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT 1,
     FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE
 );

@@ -80,6 +80,7 @@ class WhitelistTemplate(Base):
     room_id = Column(
         Integer, ForeignKey("rooms.id", ondelete="CASCADE"), nullable=False
     )
+    is_active = Column(Boolean, default=True, nullable=False)
 
     room = relationship("Room", back_populates="whitelists")
 
@@ -94,7 +95,10 @@ class WhitelistTemplate(Base):
         self.urls = json.dumps(value)
 
     def __repr__(self) -> str:
-        return f"<WhitelistTemplate {self.name} (room_id={self.room_id})>"
+        return (
+            f"<WhitelistTemplate {self.name} "
+            f"(room_id={self.room_id}, is_active={self.is_active})>"
+        )
 
 
 def get_db():
@@ -128,6 +132,8 @@ def _sqlite_whitelist_table_needs_migration(connection) -> bool:
     )
 
     room_id = columns.get("room_id")
+    is_active = columns.get("is_active")
+
     has_room_fk = any(
         fk["table"] == "rooms"
         and fk["from"] == "room_id"
@@ -136,7 +142,17 @@ def _sqlite_whitelist_table_needs_migration(connection) -> bool:
         for fk in foreign_keys
     )
 
-    return room_id is None or room_id["notnull"] != 1 or not has_room_fk
+    has_valid_is_active = (
+        is_active is not None
+        and is_active["notnull"] == 1
+    )
+
+    return (
+        room_id is None
+        or room_id["notnull"] != 1
+        or not has_room_fk
+        or not has_valid_is_active
+    )
 
 
 def _migrate_sqlite_whitelist_table() -> None:
@@ -181,20 +197,34 @@ def _migrate_sqlite_whitelist_table() -> None:
                     name TEXT NOT NULL,
                     urls TEXT NOT NULL,
                     room_id INTEGER NOT NULL,
+                    is_active BOOLEAN NOT NULL DEFAULT 1,
                     FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE
                 )
                 """
             )
         )
-        connection.execute(
-            text(
-                """
-                INSERT INTO whitelist_templates (id, name, urls, room_id)
-                SELECT id, name, urls, room_id
-                FROM whitelist_templates_legacy
-                """
+
+        if "is_active" in columns:
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO whitelist_templates (id, name, urls, room_id, is_active)
+                    SELECT id, name, urls, room_id, COALESCE(is_active, 1)
+                    FROM whitelist_templates_legacy
+                    """
+                )
             )
-        )
+        else:
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO whitelist_templates (id, name, urls, room_id, is_active)
+                    SELECT id, name, urls, room_id, 1
+                    FROM whitelist_templates_legacy
+                    """
+                )
+            )
+
         connection.execute(text("DROP TABLE whitelist_templates_legacy"))
 
 

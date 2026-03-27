@@ -32,6 +32,7 @@ class WhitelistCreate(BaseModel):
     name: str
     urls: List[str]
     room_id: int
+    is_active: bool = True
 
     @field_validator("urls")
     @classmethod
@@ -54,6 +55,7 @@ class WhitelistResponse(BaseModel):
     name: str
     urls: List[str]
     room_id: int
+    is_active: bool
 
     class Config:
         from_attributes = True
@@ -61,12 +63,15 @@ class WhitelistResponse(BaseModel):
 
 class DeleteResponse(BaseModel):
     success: bool
-
+    
+class WhitelistToggle(BaseModel):
+    is_active: bool
 
 class WhitelistUpdate(BaseModel):
     name: str
     urls: List[str]
     room_id: int
+    is_active: bool = True
 
     @field_validator("urls")
     @classmethod

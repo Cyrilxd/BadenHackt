@@ -82,7 +82,10 @@ def _room_whitelist_entries(db: Session, room_id: int) -> list[str]:
     entries: list[str] = []
     templates = (
         db.query(WhitelistTemplate)
-        .filter(WhitelistTemplate.room_id == room_id)
+        .filter(
+            WhitelistTemplate.room_id == room_id,
+            WhitelistTemplate.is_active == True,
+        )
         .order_by(WhitelistTemplate.id.asc())
         .all()
     )

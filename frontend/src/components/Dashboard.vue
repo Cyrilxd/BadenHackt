@@ -12,15 +12,21 @@ const modalVisible = ref(false)
 const showWhitelistForm = ref(false)
 const newWhitelistName = ref('')
 const newWhitelistUrls = ref('')
+const newWhitelistIsActive = ref(true)
 
 const editingWhitelistId = ref<number | null>(null)
 const editWhitelistName = ref('')
 const editWhitelistUrls = ref('')
+const editWhitelistIsActive = ref(true)
 
 const selectedRoomWhitelists = computed(() => {
   if (!selectedRoomId.value) return []
   return whitelists.value.filter(w => w.room_id === selectedRoomId.value)
 })
+
+const selectedRoom = computed(() =>
+  rooms.value.find(r => r.id === selectedRoomId.value) ?? null
+)
 
 onMounted(async () => {
   await loadData()
@@ -74,6 +80,7 @@ function closeWhitelistModal() {
   cancelEditWhitelist()
   newWhitelistName.value = ''
   newWhitelistUrls.value = ''
+  newWhitelistIsActive.value = true
 }
 
 function handleRoomCardClick(room: Room) {
@@ -112,13 +119,15 @@ async function createWhitelist() {
     const whitelist = await whitelistsApi.createWhitelist(
       cleanedName,
       urls,
-      selectedRoomId.value
+      selectedRoomId.value,
+      newWhitelistIsActive.value
     )
 
     whitelists.value.push(whitelist)
 
     newWhitelistName.value = ''
     newWhitelistUrls.value = ''
+    newWhitelistIsActive.value = true
     showWhitelistForm.value = false
   } catch (err: any) {
     error.value =
@@ -133,6 +142,7 @@ function startEditWhitelist(wl: Whitelist) {
   editingWhitelistId.value = wl.id
   editWhitelistName.value = wl.name
   editWhitelistUrls.value = wl.urls.join('\n')
+  editWhitelistIsActive.value = wl.is_active
   showWhitelistForm.value = false
   error.value = ''
 }
@@ -141,6 +151,7 @@ function cancelEditWhitelist() {
   editingWhitelistId.value = null
   editWhitelistName.value = ''
   editWhitelistUrls.value = ''
+  editWhitelistIsActive.value = true
 }
 
 async function updateWhitelist() {
@@ -173,7 +184,8 @@ async function updateWhitelist() {
       editingWhitelistId.value,
       cleanedName,
       urls,
-      selectedRoomId.value
+      selectedRoomId.value,
+      editWhitelistIsActive.value
     )
 
     const index = whitelists.value.findIndex(w => w.id === updatedWhitelist.id)
@@ -186,6 +198,33 @@ async function updateWhitelist() {
     error.value =
       err?.response?.data?.detail ||
       'Fehler beim Aktualisieren der Whitelist'
+  } finally {
+    loading.value = false
+  }
+}
+
+async function toggleWhitelistActive(wl: Whitelist) {
+  loading.value = true
+  error.value = ''
+
+  try {
+    const updatedWhitelist = await whitelistsApi.toggleWhitelist(
+      wl.id,
+      !wl.is_active
+    )
+
+    const index = whitelists.value.findIndex(w => w.id === updatedWhitelist.id)
+    if (index !== -1) {
+      whitelists.value[index] = updatedWhitelist
+    }
+
+    if (editingWhitelistId.value === updatedWhitelist.id) {
+      editWhitelistIsActive.value = updatedWhitelist.is_active
+    }
+  } catch (err: any) {
+    error.value =
+      err?.response?.data?.detail ||
+      'Fehler beim Aktivieren/Deaktivieren der Whitelist'
   } finally {
     loading.value = false
   }
@@ -212,10 +251,6 @@ async function deleteWhitelist(id: number) {
     loading.value = false
   }
 }
-
-const selectedRoom = computed(() =>
-  rooms.value.find(r => r.id === selectedRoomId.value) ?? null
-)
 </script>
 
 <template>
@@ -304,6 +339,12 @@ const selectedRoom = computed(() =>
             class="field field-area"
             placeholder="Domains oder Hosts, eine Zeile pro Eintrag"
           ></textarea>
+
+          <label class="checkbox-row">
+            <input v-model="newWhitelistIsActive" type="checkbox" />
+            Whitelist aktiv
+          </label>
+
           <button class="btn-primary" :disabled="loading" @click="createWhitelist">Erstellen</button>
         </div>
 
@@ -321,6 +362,12 @@ const selectedRoom = computed(() =>
                 class="field field-area"
                 placeholder="Hosts eine Zeile pro Eintrag"
               ></textarea>
+
+              <label class="checkbox-row">
+                <input v-model="editWhitelistIsActive" type="checkbox" />
+                Whitelist aktiv
+              </label>
+
               <div class="inline-actions">
                 <button class="btn-primary" :disabled="loading" @click.stop="updateWhitelist">Speichern</button>
                 <button class="btn-light" :disabled="loading" @click.stop="cancelEditWhitelist">Abbrechen</button>
@@ -329,8 +376,20 @@ const selectedRoom = computed(() =>
 
             <div v-else>
               <header class="whitelist-head">
-                <h4>{{ wl.name }}</h4>
+                <div>
+                  <h4>{{ wl.name }}</h4>
+                  <p
+                    class="whitelist-status"
+                    :class="wl.is_active ? 'whitelist-status-active' : 'whitelist-status-inactive'"
+                  >
+                    {{ wl.is_active ? 'Aktiv' : 'Inaktiv' }}
+                  </p>
+                </div>
+
                 <div class="inline-actions">
+                  <button class="icon-btn" @click.stop="toggleWhitelistActive(wl)">
+                    {{ wl.is_active ? 'Deaktivieren' : 'Aktivieren' }}
+                  </button>
                   <button class="icon-btn" @click.stop="startEditWhitelist(wl)">Bearbeiten</button>
                   <button class="icon-btn icon-btn-danger" @click.stop="deleteWhitelist(wl.id)">Löschen</button>
                 </div>
@@ -588,6 +647,15 @@ const selectedRoom = computed(() =>
   font-family: var(--mono);
 }
 
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-bottom: 0.75rem;
+  color: var(--color-text);
+  font-size: 0.9rem;
+}
+
 .empty {
   border: 1px dashed var(--color-border);
   border-radius: 12px;
@@ -620,9 +688,25 @@ const selectedRoom = computed(() =>
   font-size: 0.98rem;
 }
 
+.whitelist-status {
+  margin: 0.35rem 0 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.whitelist-status-active {
+  color: #2f7c22;
+}
+
+.whitelist-status-inactive {
+  color: #a13333;
+}
+
 .inline-actions {
   display: flex;
   gap: 0.45rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .icon-btn {

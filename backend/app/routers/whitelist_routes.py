@@ -9,6 +9,7 @@ from ..schemas import (
     DeleteResponse,
     WhitelistCreate,
     WhitelistResponse,
+    WhitelistToggle,
     WhitelistUpdate,
 )
 
@@ -33,6 +34,7 @@ async def get_whitelists(
             "name": t.name,
             "urls": t.url_list,
             "room_id": t.room_id,
+            "is_active": t.is_active,
         }
         for t in query.all()
     ]
@@ -51,6 +53,7 @@ async def create_whitelist(
     template = WhitelistTemplate(
         name=whitelist.name,
         room_id=whitelist.room_id,
+        is_active=whitelist.is_active,
     )
     template.url_list = whitelist.urls
 
@@ -70,10 +73,11 @@ async def create_whitelist(
     db.refresh(template)
 
     logger.info(
-        "User %s created whitelist '%s' for %s",
+        "User %s created whitelist '%s' for %s (active=%s)",
         current_user.username,
         whitelist.name,
         room.name,
+        template.is_active,
     )
 
     return {
@@ -81,6 +85,7 @@ async def create_whitelist(
         "name": template.name,
         "urls": template.url_list,
         "room_id": template.room_id,
+        "is_active": template.is_active,
     }
 
 
@@ -102,16 +107,18 @@ async def update_whitelist(
         raise HTTPException(status_code=404, detail="Room not found")
 
     previous_room_id = template.room_id
+
     template.name = whitelist.name
     template.url_list = whitelist.urls
     template.room_id = whitelist.room_id
+    template.is_active = whitelist.is_active
 
     db.flush()
 
     try:
         firewall.FirewallManager.sync_room_policies(
             db,
-            [previous_room_id, whitelist.room_id],
+            list({previous_room_id, whitelist.room_id}),
         )
     except firewall.FirewallSyncError as exc:
         db.rollback()
@@ -124,10 +131,11 @@ async def update_whitelist(
     db.refresh(template)
 
     logger.info(
-        "User %s updated whitelist '%s' for %s",
+        "User %s updated whitelist '%s' for %s (active=%s)",
         current_user.username,
         template.name,
         room.name,
+        template.is_active,
     )
 
     return {
@@ -135,6 +143,53 @@ async def update_whitelist(
         "name": template.name,
         "urls": template.url_list,
         "room_id": template.room_id,
+        "is_active": template.is_active,
+    }
+
+
+@router.patch("/whitelists/{whitelist_id}/toggle", response_model=WhitelistResponse)
+async def toggle_whitelist(
+    whitelist_id: int,
+    payload: WhitelistToggle,
+    current_user: User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+):
+    template = (
+        db.query(WhitelistTemplate).filter(WhitelistTemplate.id == whitelist_id).first()
+    )
+    if not template:
+        raise HTTPException(status_code=404, detail="Whitelist not found")
+
+    template.is_active = payload.is_active
+    room_id = template.room_id
+
+    db.flush()
+
+    try:
+        firewall.FirewallManager.sync_room_policies(db, [room_id])
+    except firewall.FirewallSyncError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=502,
+            detail=f"Failed to sync whitelist with firewall: {exc}",
+        ) from exc
+
+    db.commit()
+    db.refresh(template)
+
+    logger.info(
+        "User %s set whitelist '%s' active=%s",
+        current_user.username,
+        template.name,
+        template.is_active,
+    )
+
+    return {
+        "id": template.id,
+        "name": template.name,
+        "urls": template.url_list,
+        "room_id": template.room_id,
+        "is_active": template.is_active,
     }
 
 
@@ -152,6 +207,7 @@ async def delete_whitelist(
 
     template_name = template.name
     room_id = template.room_id
+
     db.delete(template)
     db.flush()
 
