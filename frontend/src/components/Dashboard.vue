@@ -5,6 +5,8 @@ import { copy } from '../constants/copy'
 import DashboardPageTitle from './dashboard/DashboardPageTitle.vue'
 import RoomCard from './dashboard/RoomCard.vue'
 import WhitelistModal from './dashboard/WhitelistModal.vue'
+import UiToast from './ui/UiToast.vue'
+import UiConfirm from './ui/UiConfirm.vue'
 
 const rooms = ref<Room[]>([])
 const whitelists = ref<Whitelist[]>([])
@@ -14,6 +16,36 @@ const loadingRoomId = ref<number | null>(null)
 const loadingModal = ref(false)
 const error = ref('')
 const modalVisible = ref(false)
+
+// Toast
+const toast = ref<{ message: string; type: 'success' | 'error' } | null>(null)
+let _toastTimer: ReturnType<typeof setTimeout> | null = null
+
+function showToast(message: string, type: 'success' | 'error' = 'success') {
+  if (_toastTimer) clearTimeout(_toastTimer)
+  toast.value = { message, type }
+  _toastTimer = setTimeout(() => { toast.value = null }, 3000)
+}
+
+// Confirm-Dialog
+interface ConfirmOptions {
+  title: string
+  message: string
+  danger?: boolean
+  onConfirm: () => void
+}
+const confirmDialog = ref<ConfirmOptions | null>(null)
+
+function showConfirm(options: ConfirmOptions) {
+  confirmDialog.value = options
+}
+function handleConfirmOk() {
+  confirmDialog.value?.onConfirm()
+  confirmDialog.value = null
+}
+function handleConfirmCancel() {
+  confirmDialog.value = null
+}
 
 const showWhitelistForm = ref(false)
 const newWhitelistName = ref('')
@@ -45,6 +77,16 @@ async function loadData() {
   }
 }
 
+function requestToggle(room: Room) {
+  const willEnable = !room.internet_enabled
+  showConfirm({
+    title: willEnable ? copy.confirm.toggleOnTitle : copy.confirm.toggleOffTitle,
+    message: `Alle Geräte in «${room.name}» ${willEnable ? copy.confirm.toggleOnBody : copy.confirm.toggleOffBody}`,
+    danger: !willEnable,
+    onConfirm: () => toggleInternet(room),
+  })
+}
+
 async function toggleInternet(room: Room) {
   loadingRoomId.value = room.id
   error.value = ''
@@ -53,6 +95,7 @@ async function toggleInternet(room: Room) {
     const newState = !room.internet_enabled
     await roomsApi.toggleInternet(room.id, newState)
     room.internet_enabled = newState
+    showToast(newState ? copy.toast.toggleOn : copy.toast.toggleOff)
   } catch {
     error.value = copy.dashboard.toggleError
   } finally {
@@ -126,6 +169,7 @@ async function createWhitelist() {
     newWhitelistName.value = ''
     newWhitelistUrls.value = ''
     showWhitelistForm.value = false
+    showToast(copy.toast.whitelistCreated)
   } catch (err: any) {
     error.value =
       err?.response?.data?.detail || copy.dashboard.whitelistCreateError
@@ -187,6 +231,7 @@ async function updateWhitelist() {
     }
 
     cancelEditWhitelist()
+    showToast(copy.toast.whitelistUpdated)
   } catch (err: any) {
     error.value =
       err?.response?.data?.detail || copy.dashboard.whitelistUpdateError
@@ -195,9 +240,16 @@ async function updateWhitelist() {
   }
 }
 
-async function deleteWhitelist(id: number) {
-  if (!confirm(copy.dashboard.deleteConfirm)) return
+function requestDelete(id: number) {
+  showConfirm({
+    title: copy.confirm.deleteTitle,
+    message: copy.confirm.deleteBody,
+    danger: true,
+    onConfirm: () => doDeleteWhitelist(id),
+  })
+}
 
+async function doDeleteWhitelist(id: number) {
   loadingModal.value = true
   error.value = ''
 
@@ -208,6 +260,7 @@ async function deleteWhitelist(id: number) {
     if (editingWhitelistId.value === id) {
       cancelEditWhitelist()
     }
+    showToast(copy.toast.whitelistDeleted)
   } catch (err: any) {
     error.value = err?.response?.data?.detail || copy.dashboard.whitelistDeleteError
   } finally {
@@ -241,7 +294,7 @@ const selectedRoom = computed(() =>
         :selected="selectedRoomId === room.id"
         :loading="loadingRoomId === room.id"
         @card-click="handleRoomCardClick"
-        @toggle="toggleInternet"
+        @toggle="requestToggle"
         @manage="(r) => openWhitelistModal(r.id, !r.internet_enabled)"
       />
     </section>
@@ -262,8 +315,23 @@ const selectedRoom = computed(() =>
       @create="createWhitelist"
       @saveWhitelist="updateWhitelist"
       @cancelEdit="cancelEditWhitelist"
-      @delete="deleteWhitelist"
+      @delete="requestDelete"
       @edit="startEditWhitelist"
+    />
+
+    <Transition name="toast">
+      <UiToast v-if="toast" :message="toast.message" :type="toast.type" />
+    </Transition>
+
+    <UiConfirm
+      v-if="confirmDialog"
+      :title="confirmDialog.title"
+      :message="confirmDialog.message"
+      :confirm-label="copy.confirm.ok"
+      :cancel-label="copy.confirm.cancel"
+      :danger="confirmDialog.danger"
+      @confirm="handleConfirmOk"
+      @cancel="handleConfirmCancel"
     />
   </div>
 </template>
@@ -309,5 +377,17 @@ const selectedRoom = computed(() =>
   background: var(--color-surface);
   padding: 1rem;
   color: var(--color-muted);
+}
+
+/* Toast slide-in from bottom-right */
+.toast-enter-active,
+.toast-leave-active {
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+
+.toast-enter-from,
+.toast-leave-to {
+  opacity: 0;
+  transform: translateY(0.5rem);
 }
 </style>

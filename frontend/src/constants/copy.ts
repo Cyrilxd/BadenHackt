@@ -48,6 +48,23 @@ export const copy = {
     editNamePlaceholder: 'Whitelist-Name',
     editUrlsPlaceholder: 'Hosts eine Zeile pro Eintrag',
   },
+  toast: {
+    toggleOn: 'Internet aktiviert',
+    toggleOff: 'Internet gesperrt',
+    whitelistCreated: 'Whitelist erstellt',
+    whitelistUpdated: 'Whitelist aktualisiert',
+    whitelistDeleted: 'Whitelist gelöscht',
+  },
+  confirm: {
+    toggleOffTitle: 'Internet sperren',
+    toggleOffBody: 'verlieren sofort den Internetzugang.',
+    toggleOnTitle: 'Internet freigeben',
+    toggleOnBody: 'erhalten sofort Internetzugang.',
+    deleteTitle: 'Whitelist löschen',
+    deleteBody: 'Diese Whitelist wird unwiderruflich gelöscht.',
+    ok: 'Bestätigen',
+    cancel: 'Abbrechen',
+  },
   room: {
     vlanPrefix: 'VLAN',
     statusOn: 'Internet aktiv',
