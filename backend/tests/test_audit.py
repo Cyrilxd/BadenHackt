@@ -6,29 +6,43 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from app.audit import AuditAction, log_action
-from app.database import AuditLog, Base, get_db
+from app.auth import create_access_token, get_password_hash
+from app.database import AuditLog, Base, User, get_db
 from app.main import app
 
 # --------------------------------------------------------------------------- #
-# In-Memory SQLite für Tests                                                   #
+# Fixtures                                                                     #
 # --------------------------------------------------------------------------- #
-
-TEST_DB_URL = "sqlite:///:memory:"
-
 
 @pytest.fixture(scope="module")
 def db_session():
+    """
+    In-Memory SQLite mit StaticPool: alle Verbindungen teilen dieselbe
+    Datenbank-Instanz — Pflicht für :memory: damit Tabellen nicht verloren gehen.
+    """
     engine = create_engine(
-        TEST_DB_URL, connect_args={"check_same_thread": False}
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
     )
     Base.metadata.create_all(bind=engine)
     Session = sessionmaker(bind=engine)
     session = Session()
+
+    # Testnutzer seeden damit JWT-Auth in API-Tests funktioniert
+    session.add(User(
+        username="lehrer",
+        password_hash=get_password_hash("admin123"),
+        vlan_id=0,
+        room_name="Test Lehrer",
+    ))
+    session.commit()
+
     yield session
     session.close()
-    Base.metadata.drop_all(bind=engine)
 
 
 @pytest.fixture(scope="module")
@@ -40,10 +54,19 @@ def client(db_session):
     app.dependency_overrides.clear()
 
 
+@pytest.fixture(scope="module")
+def auth_header():
+    """
+    JWT direkt erzeugen — kein Roundtrip über den Login-Endpunkt nötig.
+    Testet auth-unabhängig die Audit-API.
+    """
+    token = create_access_token(data={"sub": "lehrer", "auth_source": "local"})
+    return {"Authorization": f"Bearer {token}"}
+
+
 # --------------------------------------------------------------------------- #
 # Unit-Tests: log_action()                                                     #
 # --------------------------------------------------------------------------- #
-
 
 def test_log_action_creates_entry(db_session):
     """log_action schreibt einen Eintrag in audit_logs."""
@@ -54,30 +77,18 @@ def test_log_action_creates_entry(db_session):
         target="Zimmer 1 (VLAN 18)",
         detail={"enabled": True},
     )
-
     entry = db_session.query(AuditLog).filter_by(action="internet_toggle").first()
     assert entry is not None
     assert entry.username == "lehrer"
     assert entry.target == "Zimmer 1 (VLAN 18)"
     assert entry.success is True
-    payload = json.loads(entry.detail)
-    assert payload["enabled"] is True
+    assert json.loads(entry.detail)["enabled"] is True
 
 
 def test_log_action_failed_login(db_session):
     """Fehlgeschlagener Login wird mit success=False protokolliert."""
-    log_action(
-        db_session,
-        username="hacker",
-        action=AuditAction.LOGIN_FAILED,
-        success=False,
-    )
-
-    entry = (
-        db_session.query(AuditLog)
-        .filter_by(action="login_failed", username="hacker")
-        .first()
-    )
+    log_action(db_session, username="hacker", action=AuditAction.LOGIN_FAILED, success=False)
+    entry = db_session.query(AuditLog).filter_by(action="login_failed", username="hacker").first()
     assert entry is not None
     assert entry.success is False
     assert entry.detail is None
@@ -92,12 +103,7 @@ def test_log_action_whitelist_create(db_session):
         target="Mathe-Portale → Zimmer 3",
         detail={"urls": ["khan-academy.org"], "active": True},
     )
-
-    entry = (
-        db_session.query(AuditLog)
-        .filter_by(action="whitelist_create", username="mueller")
-        .first()
-    )
+    entry = db_session.query(AuditLog).filter_by(action="whitelist_create", username="mueller").first()
     assert entry is not None
     assert "Mathe-Portale" in entry.target
 
@@ -113,86 +119,48 @@ def test_log_action_all_enum_values_are_strings():
 # API-Tests: GET /api/audit                                                    #
 # --------------------------------------------------------------------------- #
 
-
-def _get_token(client: TestClient) -> str:
-    """Hilfe: Login-Token für Test-Nutzer holen."""
-    resp = client.post(
-        "/api/login",
-        data={"username": "lehrer", "password": "admin123"},
-        headers={"Content-Type": "application/x-www-form-urlencoded"},
-    )
-    # Wenn LDAP nicht läuft, ist 503 möglich — dann lokaler Fallback
-    if resp.status_code == 503:
-        pytest.skip("LDAP nicht erreichbar, Test übersprungen")
-    assert resp.status_code == 200
-    return resp.json()["access_token"]
-
-
 def test_audit_endpoint_requires_auth(client):
     """Ohne JWT wird 401 zurückgegeben."""
-    resp = client.get("/api/audit")
-    assert resp.status_code == 401
+    assert client.get("/api/audit").status_code == 401
 
 
-def test_audit_endpoint_returns_list(client):
+def test_audit_endpoint_returns_list(client, auth_header):
     """Mit gültigem JWT gibt /api/audit eine Liste zurück."""
-    token = _get_token(client)
-    resp = client.get(
-        "/api/audit",
-        headers={"Authorization": f"Bearer {token}"},
-    )
+    resp = client.get("/api/audit", headers=auth_header)
     assert resp.status_code == 200
     data = resp.json()
     assert isinstance(data, list)
-    # Mindestens die Einträge aus den unit tests oben
-    assert len(data) >= 1
+    assert len(data) >= 1  # mindestens die Einträge aus den Unit-Tests
 
 
-def test_audit_endpoint_filter_by_action(client):
-    """Filter nach action funktioniert."""
-    token = _get_token(client)
-    resp = client.get(
-        "/api/audit?action=internet_toggle",
-        headers={"Authorization": f"Bearer {token}"},
-    )
+def test_audit_endpoint_filter_by_action(client, auth_header):
+    """Filter nach action gibt nur passende Einträge zurück."""
+    resp = client.get("/api/audit?action=internet_toggle", headers=auth_header)
     assert resp.status_code == 200
     for entry in resp.json():
         assert entry["action"] == "internet_toggle"
 
 
-def test_audit_endpoint_filter_by_success(client):
-    """Filter nach success=false liefert nur fehlgeschlagene Einträge."""
-    token = _get_token(client)
-    resp = client.get(
-        "/api/audit?success=false",
-        headers={"Authorization": f"Bearer {token}"},
-    )
+def test_audit_endpoint_filter_by_success(client, auth_header):
+    """Filter success=false liefert nur fehlgeschlagene Einträge."""
+    resp = client.get("/api/audit?success=false", headers=auth_header)
     assert resp.status_code == 200
     for entry in resp.json():
         assert entry["success"] is False
 
 
-def test_audit_endpoint_limit(client):
+def test_audit_endpoint_limit(client, auth_header):
     """limit-Parameter wird eingehalten."""
-    token = _get_token(client)
-    resp = client.get(
-        "/api/audit?limit=2",
-        headers={"Authorization": f"Bearer {token}"},
-    )
+    resp = client.get("/api/audit?limit=2", headers=auth_header)
     assert resp.status_code == 200
     assert len(resp.json()) <= 2
 
 
-def test_audit_entry_schema(client):
+def test_audit_entry_schema(client, auth_header):
     """Jeder Eintrag enthält alle erwarteten Felder."""
-    token = _get_token(client)
-    resp = client.get(
-        "/api/audit?limit=1",
-        headers={"Authorization": f"Bearer {token}"},
-    )
+    resp = client.get("/api/audit?limit=1", headers=auth_header)
     assert resp.status_code == 200
     entries = resp.json()
     if entries:
-        entry = entries[0]
         for field in ("id", "timestamp", "username", "action", "success"):
-            assert field in entry, f"Feld '{field}' fehlt im Audit-Eintrag"
+            assert field in entries[0], f"Feld '{field}' fehlt im Audit-Eintrag"
