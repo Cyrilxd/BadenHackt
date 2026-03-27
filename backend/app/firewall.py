@@ -1,83 +1,138 @@
-import subprocess
-import shutil
+import json
 import logging
+import os
+from typing import Iterable
+from urllib import error, request
+
+from sqlalchemy.orm import Session
+
+from .database import Room, WhitelistTemplate
 
 logger = logging.getLogger(__name__)
 
-NFT_AVAILABLE = shutil.which("nft") is not None
+FIREWALL_API_URL = os.environ.get("FIREWALL_API_URL", "").rstrip("/")
+FIREWALL_API_TOKEN = os.environ.get("FIREWALL_API_TOKEN", "")
+FIREWALL_API_TIMEOUT = float(os.environ.get("FIREWALL_API_TIMEOUT", "5"))
 
-if not NFT_AVAILABLE:
-    logger.warning("nft not found — running in simulation mode (no actual firewall changes)")
 
-_blocked_subnets: set[str] = set()
+class FirewallSyncError(RuntimeError):
+    pass
+
+
+def _headers() -> dict[str, str]:
+    headers = {
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+    }
+    if FIREWALL_API_TOKEN:
+        headers["X-Firewall-Token"] = FIREWALL_API_TOKEN
+    return headers
+
+
+def _request_json(method: str, path: str, payload: dict | None = None) -> dict:
+    if not FIREWALL_API_URL:
+        raise FirewallSyncError("FIREWALL_API_URL is not configured")
+
+    body = None
+    if payload is not None:
+        body = json.dumps(payload).encode("utf-8")
+
+    http_request = request.Request(
+        url=f"{FIREWALL_API_URL}{path}",
+        data=body,
+        headers=_headers(),
+        method=method,
+    )
+
+    try:
+        with request.urlopen(http_request, timeout=FIREWALL_API_TIMEOUT) as response:
+            raw_body = response.read().decode("utf-8").strip()
+    except error.HTTPError as exc:
+        error_body = exc.read().decode("utf-8").strip()
+        detail = error_body or exc.reason
+        raise FirewallSyncError(
+            f"firewall API returned HTTP {exc.code}: {detail}"
+        ) from exc
+    except error.URLError as exc:
+        raise FirewallSyncError(f"firewall API is unreachable: {exc.reason}") from exc
+    except TimeoutError as exc:
+        raise FirewallSyncError("firewall API request timed out") from exc
+
+    if not raw_body:
+        return {}
+
+    try:
+        return json.loads(raw_body)
+    except json.JSONDecodeError as exc:
+        raise FirewallSyncError("firewall API returned invalid JSON") from exc
+
+
+def _dedupe(values: Iterable[str]) -> list[str]:
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for value in values:
+        if value in seen:
+            continue
+        seen.add(value)
+        ordered.append(value)
+    return ordered
+
+
+def _room_whitelist_entries(db: Session, room_id: int) -> list[str]:
+    entries: list[str] = []
+    templates = (
+        db.query(WhitelistTemplate)
+        .filter(WhitelistTemplate.room_id == room_id)
+        .order_by(WhitelistTemplate.id.asc())
+        .all()
+    )
+    for template in templates:
+        entries.extend(template.url_list)
+    return _dedupe(entries)
+
+
+def _room_policy_payload(db: Session, room_id: int) -> dict:
+    room = db.query(Room).filter(Room.id == room_id).first()
+    if not room:
+        raise FirewallSyncError(
+            f"room {room_id} not found while building firewall policy"
+        )
+
+    return {
+        "vlan_id": room.vlan_id,
+        "room_name": room.name,
+        "subnet": room.subnet,
+        "internet_enabled": room.internet_enabled,
+        "whitelist_entries": _room_whitelist_entries(db, room.id),
+    }
 
 
 class FirewallManager:
-    """Manages nftables rules for VLAN blocking.
-    Falls back to in-memory simulation when nft is unavailable (e.g. Windows/dev)."""
+    @staticmethod
+    def sync_room_policies(db: Session, room_ids: Iterable[int]) -> None:
+        unique_room_ids = []
+        seen_room_ids: set[int] = set()
+        for room_id in room_ids:
+            if room_id in seen_room_ids:
+                continue
+            seen_room_ids.add(room_id)
+            unique_room_ids.append(room_id)
+
+        if not unique_room_ids:
+            return
+
+        payload = {
+            "rooms": [_room_policy_payload(db, room_id) for room_id in unique_room_ids]
+        }
+        response = _request_json("PUT", "/rooms/policies", payload)
+        synced_rooms = len(response.get("rooms", []))
+        logger.info(
+            "Synchronized %d room policy entries with firewall agent", synced_rooms
+        )
 
     @staticmethod
-    def block_vlan(vlan_id: int, subnet: str) -> bool:
-        if not NFT_AVAILABLE:
-            _blocked_subnets.add(subnet)
-            logger.info(f"[SIM] Blocked VLAN {vlan_id} ({subnet})")
-            return True
-        try:
-            cmd = [
-                "nft", "add", "rule", "inet", "filter", "forward",
-                "ip", "saddr", subnet, "drop"
-            ]
-            result = subprocess.run(cmd, capture_output=True, text=True)
-            if result.returncode == 0:
-                logger.info(f"Blocked VLAN {vlan_id} ({subnet})")
-                return True
-            else:
-                logger.error(f"Failed to block VLAN {vlan_id}: {result.stderr}")
-                return False
-        except Exception as e:
-            logger.error(f"Error blocking VLAN {vlan_id}: {e}")
-            return False
-
-    @staticmethod
-    def unblock_vlan(vlan_id: int, subnet: str) -> bool:
-        if not NFT_AVAILABLE:
-            _blocked_subnets.discard(subnet)
-            logger.info(f"[SIM] Unblocked VLAN {vlan_id} ({subnet})")
-            return True
-        try:
-            list_cmd = ["nft", "-a", "list", "chain", "inet", "filter", "forward"]
-            result = subprocess.run(list_cmd, capture_output=True, text=True)
-            if result.returncode != 0:
-                logger.error(f"Failed to list rules: {result.stderr}")
-                return False
-            for line in result.stdout.split('\n'):
-                if subnet in line and 'drop' in line and '# handle' in line:
-                    handle = line.split('# handle')[-1].strip()
-                    del_cmd = ["nft", "delete", "rule", "inet", "filter", "forward", "handle", handle]
-                    del_result = subprocess.run(del_cmd, capture_output=True, text=True)
-                    if del_result.returncode == 0:
-                        logger.info(f"Unblocked VLAN {vlan_id} ({subnet})")
-                        return True
-            logger.warning(f"No blocking rule found for VLAN {vlan_id}")
-            return True
-        except Exception as e:
-            logger.error(f"Error unblocking VLAN {vlan_id}: {e}")
-            return False
-
-    @staticmethod
-    def get_vlan_status(subnet: str) -> bool:
-        """Returns True if internet is enabled (not blocked)."""
-        if not NFT_AVAILABLE:
-            return subnet not in _blocked_subnets
-        try:
-            list_cmd = ["nft", "list", "chain", "inet", "filter", "forward"]
-            result = subprocess.run(list_cmd, capture_output=True, text=True)
-            if result.returncode == 0:
-                for line in result.stdout.split('\n'):
-                    if subnet in line and 'drop' in line:
-                        return False
-                return True
-            return True
-        except Exception as e:
-            logger.error(f"Error checking VLAN status: {e}")
-            return True
+    def sync_all_rooms(db: Session) -> None:
+        room_ids = [
+            room_id for (room_id,) in db.query(Room.id).order_by(Room.vlan_id).all()
+        ]
+        FirewallManager.sync_room_policies(db, room_ids)

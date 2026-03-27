@@ -3,7 +3,7 @@ import logging
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from .. import auth
+from .. import auth, firewall
 from ..database import Room, User, WhitelistTemplate, get_db
 from ..schemas import (
     DeleteResponse,
@@ -55,6 +55,17 @@ async def create_whitelist(
     template.url_list = whitelist.urls
 
     db.add(template)
+    db.flush()
+
+    try:
+        firewall.FirewallManager.sync_room_policies(db, [whitelist.room_id])
+    except firewall.FirewallSyncError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=502,
+            detail=f"Failed to sync whitelist with firewall: {exc}",
+        ) from exc
+
     db.commit()
     db.refresh(template)
 
@@ -90,9 +101,24 @@ async def update_whitelist(
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
 
+    previous_room_id = template.room_id
     template.name = whitelist.name
     template.url_list = whitelist.urls
     template.room_id = whitelist.room_id
+
+    db.flush()
+
+    try:
+        firewall.FirewallManager.sync_room_policies(
+            db,
+            [previous_room_id, whitelist.room_id],
+        )
+    except firewall.FirewallSyncError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=502,
+            detail=f"Failed to sync whitelist with firewall: {exc}",
+        ) from exc
 
     db.commit()
     db.refresh(template)
@@ -125,7 +151,19 @@ async def delete_whitelist(
         raise HTTPException(status_code=404, detail="Whitelist not found")
 
     template_name = template.name
+    room_id = template.room_id
     db.delete(template)
+    db.flush()
+
+    try:
+        firewall.FirewallManager.sync_room_policies(db, [room_id])
+    except firewall.FirewallSyncError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=502,
+            detail=f"Failed to sync whitelist with firewall: {exc}",
+        ) from exc
+
     db.commit()
 
     logger.info("User %s deleted whitelist '%s'", current_user.username, template_name)

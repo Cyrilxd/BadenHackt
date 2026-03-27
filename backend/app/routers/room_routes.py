@@ -17,12 +17,7 @@ async def get_rooms(
     current_user: User = Depends(auth.get_current_user),
     db: Session = Depends(get_db),
 ):
-    rooms = db.query(Room).order_by(Room.vlan_id).all()
-
-    for room in rooms:
-        room.internet_enabled = firewall.FirewallManager.get_vlan_status(room.subnet)
-
-    return rooms
+    return db.query(Room).order_by(Room.vlan_id).all()
 
 
 @router.post("/rooms/{room_id}/toggle", response_model=ToggleResponse)
@@ -36,15 +31,18 @@ async def toggle_internet(
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
 
-    if enable:
-        success = firewall.FirewallManager.unblock_vlan(room.vlan_id, room.subnet)
-    else:
-        success = firewall.FirewallManager.block_vlan(room.vlan_id, room.subnet)
-
-    if not success:
-        raise HTTPException(status_code=500, detail="Failed to update firewall rules")
-
     room.internet_enabled = enable
+    db.flush()
+
+    try:
+        firewall.FirewallManager.sync_room_policies(db, [room.id])
+    except firewall.FirewallSyncError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=502,
+            detail=f"Failed to update firewall rules: {exc}",
+        ) from exc
+
     db.commit()
 
     logger.info(

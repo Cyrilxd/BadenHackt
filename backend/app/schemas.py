@@ -1,5 +1,31 @@
-from pydantic import BaseModel, field_validator
 from typing import List
+from urllib.parse import urlsplit
+
+from pydantic import BaseModel, field_validator
+
+
+def _normalize_whitelist_entry(raw_value: str) -> str:
+    value = raw_value.strip().lower()
+    if not value:
+        return ""
+
+    if "://" in value:
+        parsed = urlsplit(value)
+        value = parsed.hostname or ""
+    else:
+        value = value.split("/", 1)[0]
+        if "@" in value:
+            value = value.rsplit("@", 1)[-1]
+        if value.count(":") == 1:
+            host, port = value.rsplit(":", 1)
+            if port.isdigit():
+                value = host
+
+    value = value.strip().rstrip(".")
+    if value.startswith("*."):
+        value = value[2:]
+
+    return value
 
 
 class Token(BaseModel):
@@ -33,7 +59,14 @@ class WhitelistCreate(BaseModel):
     @field_validator("urls")
     @classmethod
     def clean_urls(cls, v: List[str]) -> List[str]:
-        cleaned = [url.strip() for url in v if url.strip()]
+        cleaned: List[str] = []
+        seen: set[str] = set()
+        for url in v:
+            normalized = _normalize_whitelist_entry(url)
+            if not normalized or normalized in seen:
+                continue
+            seen.add(normalized)
+            cleaned.append(normalized)
         if not cleaned:
             raise ValueError("Mindestens eine URL erforderlich")
         return cleaned
@@ -52,6 +85,7 @@ class WhitelistResponse(BaseModel):
 class DeleteResponse(BaseModel):
     success: bool
 
+
 class WhitelistUpdate(BaseModel):
     name: str
     urls: List[str]
@@ -60,7 +94,14 @@ class WhitelistUpdate(BaseModel):
     @field_validator("urls")
     @classmethod
     def clean_urls(cls, v: List[str]) -> List[str]:
-        cleaned = [url.strip() for url in v if url.strip()]
+        cleaned: List[str] = []
+        seen: set[str] = set()
+        for url in v:
+            normalized = _normalize_whitelist_entry(url)
+            if not normalized or normalized in seen:
+                continue
+            seen.add(normalized)
+            cleaned.append(normalized)
         if not cleaned:
             raise ValueError("Mindestens eine URL erforderlich")
         return cleaned

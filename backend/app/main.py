@@ -1,12 +1,10 @@
-import json
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI, HTTPException, Request, Response
-from sqlalchemy.orm import Session
+from fastapi import FastAPI, Request, Response
 
-from . import auth
-from .database import Room, User, WhitelistTemplate, get_db
+from . import firewall
+from .database import SessionLocal
 from .init_data import init_test_data
 from .routers import auth_routes, room_routes, whitelist_routes
 
@@ -18,6 +16,12 @@ logger = logging.getLogger(__name__)
 async def lifespan(app: FastAPI):
     init_test_data()
     logger.info("Database initialized and seeded")
+    with SessionLocal() as db:
+        try:
+            firewall.FirewallManager.sync_all_rooms(db)
+            logger.info("Initial firewall policy sync completed")
+        except firewall.FirewallSyncError as exc:
+            logger.warning("Initial firewall policy sync failed: %s", exc)
     yield
 
 

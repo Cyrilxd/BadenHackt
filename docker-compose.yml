@@ -19,9 +19,13 @@ services:
       - LDAP_BIND_PASSWORD=${LDAP_BIND_PASSWORD:-admin}
       - LDAP_USER_SEARCH_BASE=${LDAP_USER_SEARCH_BASE:-ou=users,dc=hackathon,dc=local}
       - LDAP_USER_SEARCH_FILTER=${LDAP_USER_SEARCH_FILTER:-(uid={username})}
+      - FIREWALL_API_URL=${FIREWALL_API_URL:-http://shorewall-mock:8080}
+      - FIREWALL_API_TOKEN=${FIREWALL_API_TOKEN:-hackathon-firewall-token}
     depends_on:
       ldap:
         condition: service_healthy
+      shorewall-mock:
+        condition: service_started
     restart: unless-stopped
 
   frontend:
@@ -59,4 +63,24 @@ services:
       timeout: 5s
       retries: 12
       start_period: 10s
+    restart: unless-stopped
+
+  shorewall-mock:
+    build:
+      context: ./firewall-agent
+      dockerfile: Dockerfile
+    container_name: internet-control-shorewall-mock
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./data/firewall-agent:/app/data
+    environment:
+      - FIREWALL_DRIVER=${FIREWALL_DRIVER:-mock}
+      - FIREWALL_API_TOKEN=${FIREWALL_API_TOKEN:-hackathon-firewall-token}
+      - STATE_PATH=${STATE_PATH:-/app/data/firewall-state.json}
+      - MOCK_OUTPUT_DIR=${MOCK_OUTPUT_DIR:-/app/data/mock}
+      - SHOREWALL_SOURCE_ZONE=${SHOREWALL_SOURCE_ZONE:-loc}
+      - SHOREWALL_DEST_ZONE=${SHOREWALL_DEST_ZONE:-net}
+      - SHOREWALL_RULES_FILE=${SHOREWALL_RULES_FILE:-/etc/shorewall/rules}
+      - SHOREWALL_MANAGED_RULES_FILE=${SHOREWALL_MANAGED_RULES_FILE:-/etc/shorewall/rules.d/badenhackt.rules}
     restart: unless-stopped

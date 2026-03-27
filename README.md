@@ -9,7 +9,7 @@ Web-basiertes Kontrollpanel für Lehrer zur Steuerung des Internetzugangs in 7 S
 - ✅ **URL-Whitelist**: Pro-Raum Whitelist-Verwaltung
 - ✅ **Modern Stack**: Vue 3 + TypeScript Frontend, FastAPI Backend
 - ✅ **Docker Deployment**: Vollständig containerisiert
-- ✅ **Firewall Integration**: nftables für Netzwerk-Kontrolle
+- ✅ **Firewall Integration**: Remote Firewall-Agent für Shorewall/MOCK
 
 ## 🏗️ Architektur
 
@@ -24,15 +24,23 @@ Web-basiertes Kontrollpanel für Lehrer zur Steuerung des Internetzugangs in 7 S
 ┌────────────────▼────────────────────────────────────┐
 │  Backend (FastAPI + SQLAlchemy)                     │
 │  Port: 8000                                         │
-│  Auth: JWT (später LDAP)                            │
+│  Auth: JWT / LDAP                                   │
 └────────────────┬────────────────────────────────────┘
                  │
-                 │ nftables commands
+                 │ HTTP room policy sync
                  │
 ┌────────────────▼────────────────────────────────────┐
-│  Host Firewall (nftables)                           │
-│  7 VLANs: 18-22, 118-119                           │
-│  Subnets: 10.3.x.0/24                               │
+│  Firewall Agent (FastAPI)                           │
+│  Port: 8081 (mock in Compose)                       │
+│  Driver: mock | shorewall                           │
+└────────────────┬────────────────────────────────────┘
+                 │
+                 │ local command execution on firewall host
+                 │
+┌────────────────▼────────────────────────────────────┐
+│  Shorewall Firewall Host                            │
+│  Managed rules per VLAN and room whitelist          │
+│  7 VLANs: 18-22, 118-119                            │
 └─────────────────────────────────────────────────────┘
 ```
 
@@ -41,8 +49,8 @@ Web-basiertes Kontrollpanel für Lehrer zur Steuerung des Internetzugangs in 7 S
 ### Voraussetzungen
 
 - **Docker** & **Docker Compose** installiert
-- **nftables** auf dem Host installiert
-- **Root/Sudo-Rechte** für Firewall-Operationen
+- Für den Mock: keine Firewall-Hardware nötig
+- Für Produktion: ein erreichbarer Debian/Shorewall-Host für den Firewall-Agent
 
 ### 1. Repository klonen
 
@@ -65,6 +73,7 @@ docker-compose logs -f
 
 **Frontend**: http://localhost (Port 80)  
 **Backend API**: http://localhost:8000  
+**Firewall Mock API**: http://localhost:8081  
 **API Dokumentation**: http://localhost:8000/docs
 
 ### 4. Login
@@ -109,9 +118,13 @@ internet-ein-aus/
 │   ├── app/
 │   │   ├── main.py         # API Endpoints
 │   │   ├── auth.py         # JWT Authentication
-│   │   ├── firewall.py     # nftables Integration
+│   │   ├── firewall.py     # Remote firewall agent client
 │   │   ├── database.py     # SQLAlchemy Models
 │   │   └── init_data.py    # Test-Daten Generator
+│   ├── Dockerfile
+│   └── requirements.txt
+├── firewall-agent/         # Firewall API für Mock/Shorewall
+│   ├── app/main.py         # Room policy sync + Shorewall driver
 │   ├── Dockerfile
 │   └── requirements.txt
 ├── frontend/               # Vue 3 Frontend
@@ -158,22 +171,33 @@ python -m app.init_data
 
 ### Umgebungsvariablen (Backend)
 
-Erstelle `.env` im `backend/` Ordner:
+Wichtige Backend-Variablen:
 
 ```env
 SECRET_KEY=your-secret-key-here-change-in-production
 DATABASE_URL=sqlite:///./internet_control.db
+FIREWALL_API_URL=http://shorewall-mock:8080
+FIREWALL_API_TOKEN=change-me
 ```
 
-### Docker Compose Anpassungen
+Wichtige Firewall-Agent-Variablen auf dem echten Firewall-Host:
 
-**Wichtig**: Der Backend-Container benötigt `privileged: true` und `network_mode: host` für nftables-Zugriff:
-
-```yaml
-backend:
-  privileged: true
-  network_mode: host
+```env
+FIREWALL_DRIVER=shorewall
+FIREWALL_API_TOKEN=change-me
+SHOREWALL_SOURCE_ZONE=loc
+SHOREWALL_DEST_ZONE=net
+SHOREWALL_RULES_FILE=/etc/shorewall/rules
+SHOREWALL_MANAGED_RULES_FILE=/etc/shorewall/rules.d/badenhackt.rules
 ```
+
+### Firewall-Verhalten
+
+- Der Backend-Server synchronisiert pro Zimmer immer die komplette Policy: `internet_enabled` plus die aggregierte Whitelist aller gespeicherten Listen dieses Zimmers.
+- In der Compose-Umgebung läuft der Agent im `mock`-Modus und schreibt die gerenderten Regeln nach [`data/firewall-agent/mock/badenhackt.rules`](/Users/daniel/dev/BadenHackt/data/firewall-agent/mock/badenhackt.rules).
+- Auf dem echten Firewall-Host läuft derselbe Agent mit `FIREWALL_DRIVER=shorewall` und erzeugt ein Shorewall-Include-File sowie die passenden `ipset`-Einträge.
+- Whitelist-Einträge werden vor dem Speichern auf Hostnamen normalisiert. `https://google.com/path` wird z.B. zu `google.com`.
+- Wildcard-Präfixe wie `*.example.org` werden auf `example.org` reduziert, weil die Shorewall-Synchronisation mit aufgelösten IP-Zielen arbeitet.
 
 ## 🔐 Sicherheit
 
@@ -208,11 +232,19 @@ docker-compose up --build -d
 ### Firewall-Regeln funktionieren nicht
 
 ```bash
-# nftables Status prüfen
-sudo nft list ruleset
+# Mock-Regeln prüfen
+sed -n '1,120p' data/firewall-agent/mock/badenhackt.rules
 
-# Backend-Container muss privilegiert sein
-# Prüfe docker-compose.yml: privileged: true
+# Agent-Logs prüfen
+docker-compose logs shorewall-mock
+```
+
+Wenn der Agent auf dem echten Firewall-Host läuft:
+
+```bash
+shorewall check
+shorewall refresh
+ipset list
 ```
 
 ### Frontend kann Backend nicht erreichen
@@ -236,7 +268,8 @@ docker-compose ps
 
 ### Whitelist
 - `GET /api/whitelists?room_id={id}` - Whitelist eines Raums abrufen
-- `POST /api/whitelists` - URL zur Whitelist hinzufügen
+- `POST /api/whitelists` - URL/Domain zur Whitelist hinzufügen und auf Firewall synchronisieren
+- `PUT /api/whitelists/{id}` - Whitelist aktualisieren und auf Firewall synchronisieren
 - `DELETE /api/whitelists/{whitelist_id}` - URL von Whitelist entfernen
 
 ## 📄 Lizenz
