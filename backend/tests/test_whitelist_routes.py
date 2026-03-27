@@ -1,8 +1,8 @@
 """Tests for CRUD operations on /api/whitelists."""
+
 import json
 
 from app.database import Room, WhitelistTemplate
-
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -38,7 +38,9 @@ def test_get_whitelists_returns_created_entry(client, auth_headers, room):
 
 
 def test_get_whitelists_filtered_by_room(client, auth_headers, room, db):
-    other = Room(name="Zimmer 2", subnet="10.3.19.0/24", vlan_id=19, internet_enabled=True)
+    other = Room(
+        name="Zimmer 2", subnet="10.3.19.0/24", vlan_id=19, internet_enabled=True
+    )
     db.add(other)
     db.flush()
     db.add_all(
@@ -115,6 +117,15 @@ def test_create_whitelist_rejects_invalid_url(client, auth_headers, room):
     resp = client.post(
         "/api/whitelists",
         json={"name": "Bad", "urls": ["not!valid.com"], "room_id": room.id},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 422
+
+
+def test_create_whitelist_rejects_single_label_host(client, auth_headers, room):
+    resp = client.post(
+        "/api/whitelists",
+        json={"name": "Bad", "urls": ["asdf"], "room_id": room.id},
         headers=auth_headers,
     )
     assert resp.status_code == 422

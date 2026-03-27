@@ -9,6 +9,7 @@ import AuditLog from "./dashboard/AuditLog.vue";
 import UiButton from "./ui/UiButton.vue";
 import UiToast from "./ui/UiToast.vue";
 import UiConfirm from "./ui/UiConfirm.vue";
+import { parseWhitelistUrlList } from "../utils/whitelistValidation";
 
 const rooms = ref<Room[]>([]);
 const whitelists = ref<Whitelist[]>([]);
@@ -242,13 +243,16 @@ async function createWhitelist() {
     }
 
     const cleanedName = newWhitelistName.value.trim();
-    const urls = newWhitelistUrls.value
-        .split("\n")
-        .map((u) => u.trim())
-        .filter(Boolean);
-
     if (!cleanedName) {
         error.value = copy.dashboard.whitelistNameMissing;
+        return;
+    }
+
+    let urls: string[];
+    try {
+        urls = parseWhitelistUrlList(newWhitelistUrls.value);
+    } catch (err: any) {
+        error.value = err?.message || copy.dashboard.whitelistUrlInvalid;
         return;
     }
 
@@ -306,13 +310,16 @@ async function updateWhitelist() {
     }
 
     const cleanedName = editWhitelistName.value.trim();
-    const urls = editWhitelistUrls.value
-        .split("\n")
-        .map((u) => u.trim())
-        .filter(Boolean);
-
     if (!cleanedName) {
         error.value = copy.dashboard.whitelistNameMissing;
+        return;
+    }
+
+    let urls: string[];
+    try {
+        urls = parseWhitelistUrlList(editWhitelistUrls.value);
+    } catch (err: any) {
+        error.value = err?.message || copy.dashboard.whitelistUrlInvalid;
         return;
     }
 
@@ -439,7 +446,7 @@ async function doDeleteWhitelist(id: number) {
             </div>
         </div>
 
-        <p v-if="error" class="error-banner">{{ error }}</p>
+        <p v-if="error && !modalVisible" class="error-banner">{{ error }}</p>
 
         <div v-if="fetching && rooms.length === 0" class="loading">
             {{ copy.dashboard.loading }}
@@ -463,6 +470,7 @@ async function doDeleteWhitelist(id: number) {
             :lists="selectedRoomWhitelists"
             :loading="loadingModal"
             :editing-id="editingWhitelistId"
+            :error-message="error"
             v-model:new-name="newWhitelistName"
             v-model:new-urls="newWhitelistUrls"
             v-model:show-form="showWhitelistForm"

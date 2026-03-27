@@ -32,6 +32,8 @@ export const copy = {
     selectRoomFirst: "Bitte zuerst ein Zimmer auswählen",
     whitelistNameMissing: "Bitte einen Namen für die Whitelist eingeben",
     whitelistUrlsMissing: "Bitte mindestens eine URL eingeben",
+    whitelistUrlInvalid:
+      "Bitte nur gültige Domains, Hosts oder IP-Adressen eingeben",
     whitelistCreateError: "Fehler beim Erstellen der Whitelist",
     whitelistUpdateError: "Fehler beim Aktualisieren der Whitelist",
     whitelistDeleteError: "Fehler beim Löschen",

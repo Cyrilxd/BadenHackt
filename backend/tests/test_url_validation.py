@@ -1,14 +1,13 @@
 """Tests für Whitelist-URL-/Host-Validierung."""
 
 import pytest
-from pydantic import ValidationError
-
 from app.schemas import WhitelistCreate, WhitelistUpdate
 from app.validators import (
     normalize_whitelist_entry,
     parse_whitelist_url_entry,
     validate_whitelist_host,
 )
+from pydantic import ValidationError
 
 
 @pytest.mark.parametrize(
@@ -37,6 +36,11 @@ def test_validate_accepts_hostname() -> None:
     assert validate_whitelist_host("google.com") == "google.com"
 
 
+def test_validate_rejects_single_label_hostname() -> None:
+    with pytest.raises(ValueError, match="Ungültig"):
+        validate_whitelist_host("asdf")
+
+
 def test_validate_idna_punycode() -> None:
     assert parse_whitelist_url_entry("münchen.de") == "xn--mnchen-3ya.de"
 
@@ -55,6 +59,8 @@ def test_parse_whitelist_url_entry_none_for_empty() -> None:
         "-bad.com",
         "bad-.com",
         "a" * 254,
+        "asdf",
+        "https://asdf/path",
         "not!valid.com",
     ],
 )

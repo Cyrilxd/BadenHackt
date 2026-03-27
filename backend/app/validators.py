@@ -64,6 +64,8 @@ def validate_whitelist_host(host: str) -> str:
     labels = ascii_host.split(".")
     if not labels or len(labels) > 127:
         raise ValueError("Ungültiger Host- oder Adresseintrag")
+    if len(labels) < 2:
+        raise ValueError("Ungültiger Host- oder Adresseintrag")
 
     for label in labels:
         if not label or len(label) > _MAX_LABEL_LEN:
