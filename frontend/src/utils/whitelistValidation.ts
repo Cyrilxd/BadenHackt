@@ -102,7 +102,7 @@ export function parseWhitelistUrlEntry(rawValue: string): string | null {
   try {
     return validateWhitelistHost(normalized);
   } catch {
-    throw new Error(`Ungültiger Whitelist-Eintrag: ${rawValue.trim()}`);
+    throw new Error(`Ungültige URL: ${rawValue.trim()}`);
   }
 }
 

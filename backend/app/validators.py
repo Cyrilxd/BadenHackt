@@ -88,5 +88,5 @@ def parse_whitelist_url_entry(raw_value: str) -> str | None:
         return validate_whitelist_host(normalized)
     except ValueError as exc:
         raise ValueError(
-            f"Ungültiger Whitelist-Eintrag: {raw_value.strip()!s}"
+            f"Ungültige URL: {raw_value.strip()!s}"
         ) from exc
