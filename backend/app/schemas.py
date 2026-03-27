@@ -1,31 +1,8 @@
 from typing import List
-from urllib.parse import urlsplit
 
 from pydantic import BaseModel, field_validator
 
-
-def _normalize_whitelist_entry(raw_value: str) -> str:
-    value = raw_value.strip().lower()
-    if not value:
-        return ""
-
-    if "://" in value:
-        parsed = urlsplit(value)
-        value = parsed.hostname or ""
-    else:
-        value = value.split("/", 1)[0]
-        if "@" in value:
-            value = value.rsplit("@", 1)[-1]
-        if value.count(":") == 1:
-            host, port = value.rsplit(":", 1)
-            if port.isdigit():
-                value = host
-
-    value = value.strip().rstrip(".")
-    if value.startswith("*."):
-        value = value[2:]
-
-    return value
+from .validators import parse_whitelist_url_entry
 
 
 class Token(BaseModel):
@@ -62,11 +39,11 @@ class WhitelistCreate(BaseModel):
         cleaned: List[str] = []
         seen: set[str] = set()
         for url in v:
-            normalized = _normalize_whitelist_entry(url)
-            if not normalized or normalized in seen:
+            canonical = parse_whitelist_url_entry(url)
+            if canonical is None or canonical in seen:
                 continue
-            seen.add(normalized)
-            cleaned.append(normalized)
+            seen.add(canonical)
+            cleaned.append(canonical)
         if not cleaned:
             raise ValueError("Mindestens eine URL erforderlich")
         return cleaned
@@ -97,11 +74,11 @@ class WhitelistUpdate(BaseModel):
         cleaned: List[str] = []
         seen: set[str] = set()
         for url in v:
-            normalized = _normalize_whitelist_entry(url)
-            if not normalized or normalized in seen:
+            canonical = parse_whitelist_url_entry(url)
+            if canonical is None or canonical in seen:
                 continue
-            seen.add(normalized)
-            cleaned.append(normalized)
+            seen.add(canonical)
+            cleaned.append(canonical)
         if not cleaned:
             raise ValueError("Mindestens eine URL erforderlich")
         return cleaned

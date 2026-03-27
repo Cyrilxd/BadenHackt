@@ -103,9 +103,13 @@ BadenHackt/
 │   │   ├── auth.py          # JWT Auth + Passwort-Hashing
 │   │   ├── database.py      # SQLAlchemy Models + DB-Setup
 │   │   ├── firewall.py      # nftables Management
+│   │   ├── schemas.py       # Pydantic-Modelle (inkl. Whitelist-URLs)
+│   │   ├── validators.py    # Whitelist-Host-Extraktion + Validierung
 │   │   └── init_data.py     # Testdaten-Initialisierung
+│   ├── tests/               # pytest (dev: requirements-dev.txt)
 │   ├── schema.sql           # DB-Schema (Referenz)
 │   ├── requirements.txt
+│   ├── requirements-dev.txt
 │   └── Dockerfile
 ├── frontend/
 │   ├── src/
@@ -136,6 +140,11 @@ BadenHackt/
 | VITE_API_URL | Backend URL (Dev) | http://localhost:8000                |
 
 ## Changelog
+
+### 2026-03-27 - Whitelist-Host-Validierung (Backend)
+- `backend/app/validators.py`: Extraktion wie bisher, plus syntaktische Prüfung (IPv4/IPv6 über `ipaddress`, Domainnamen über IDNA + RFC-1035-Labels, Längenlimits als Konstanten).
+- `backend/app/schemas.py`: `WhitelistCreate` / `WhitelistUpdate` nutzen `parse_whitelist_url_entry`; ungültige Einträge liefern klare Fehlermeldungen (422).
+- Tests: `backend/tests/test_url_validation.py`, Ausführung mit `pip install -r requirements-dev.txt` und `pytest` im Ordner `backend/`.
 
 ### 2026-03-27 - Tailwind Plus Vue (lokale Komponenten)
 - `frontend/src/tailwind-plus/vue/`: vollständiger Inhalt von `tailwind-plus-components/components/vue` (UI-Blocks als `.vue`-Dateien). Nutzung setzt passendes Tailwind-CSS-Setup voraus; App-Views (`Login`/`Dashboard`) sind davon unverändert.
