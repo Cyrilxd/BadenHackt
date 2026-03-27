@@ -1,6 +1,9 @@
+import json
 import os
-from sqlalchemy import create_engine, Column, Integer, String, Boolean, ForeignKey, Text
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from typing import List
+
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, Text, create_engine
+from sqlalchemy.orm import DeclarativeBase, relationship, sessionmaker
 
 DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///./data/internet_control.db")
 
@@ -21,6 +24,9 @@ class User(Base):
     vlan_id = Column(Integer, default=0)
     room_name = Column(String)
 
+    def __repr__(self) -> str:
+        return f"<User {self.username}>"
+
 
 class Room(Base):
     __tablename__ = "rooms"
@@ -31,6 +37,16 @@ class Room(Base):
     vlan_id = Column(Integer, unique=True, nullable=False)
     internet_enabled = Column(Boolean, default=True, nullable=False)
 
+    whitelists = relationship(
+        "WhitelistTemplate",
+        back_populates="room",
+        cascade="all, delete-orphan",
+        lazy="select",
+    )
+
+    def __repr__(self) -> str:
+        return f"<Room {self.name} (VLAN {self.vlan_id})>"
+
 
 class WhitelistTemplate(Base):
     __tablename__ = "whitelist_templates"
@@ -39,6 +55,21 @@ class WhitelistTemplate(Base):
     name = Column(String, nullable=False)
     urls = Column(Text, nullable=False)
     room_id = Column(Integer, ForeignKey("rooms.id"), nullable=False)
+
+    room = relationship("Room", back_populates="whitelists")
+
+    @property
+    def url_list(self) -> List[str]:
+        if not self.urls:
+            return []
+        return json.loads(self.urls)
+
+    @url_list.setter
+    def url_list(self, value: List[str]) -> None:
+        self.urls = json.dumps(value)
+
+    def __repr__(self) -> str:
+        return f"<WhitelistTemplate {self.name} (room_id={self.room_id})>"
 
 
 def get_db():
