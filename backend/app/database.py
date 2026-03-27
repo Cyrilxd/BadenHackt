@@ -62,8 +62,8 @@ class Room(Base):
     vlan_id = Column(Integer, unique=True, nullable=False)
     internet_enabled = Column(Boolean, default=True, nullable=False)
 
-    whitelists = relationship(
-        "WhitelistTemplate",
+    whitelist_assignments = relationship(
+        "RoomWhitelistAssignment",
         back_populates="room",
         cascade="all, delete-orphan",
         lazy="select",
@@ -79,12 +79,12 @@ class WhitelistTemplate(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
     urls = Column(Text, nullable=False)
-    room_id = Column(
-        Integer, ForeignKey("rooms.id", ondelete="CASCADE"), nullable=False
+    assignments = relationship(
+        "RoomWhitelistAssignment",
+        back_populates="whitelist",
+        cascade="all, delete-orphan",
+        lazy="select",
     )
-    is_active = Column(Boolean, default=True, nullable=False)
-
-    room = relationship("Room", back_populates="whitelists")
 
     @property
     def url_list(self) -> List[str]:
@@ -97,9 +97,29 @@ class WhitelistTemplate(Base):
         self.urls = json.dumps(value)
 
     def __repr__(self) -> str:
+        return f"<WhitelistTemplate {self.name}>"
+
+
+class RoomWhitelistAssignment(Base):
+    __tablename__ = "room_whitelist_assignments"
+
+    room_id = Column(
+        Integer, ForeignKey("rooms.id", ondelete="CASCADE"), primary_key=True
+    )
+    whitelist_id = Column(
+        Integer,
+        ForeignKey("whitelist_templates.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    is_active = Column(Boolean, default=False, nullable=False)
+
+    room = relationship("Room", back_populates="whitelist_assignments")
+    whitelist = relationship("WhitelistTemplate", back_populates="assignments")
+
+    def __repr__(self) -> str:
         return (
-            f"<WhitelistTemplate {self.name} "
-            f"(room_id={self.room_id}, is_active={self.is_active})>"
+            f"<RoomWhitelistAssignment room_id={self.room_id} "
+            f"whitelist_id={self.whitelist_id} active={self.is_active}>"
         )
 
 
@@ -108,18 +128,18 @@ class AuditLog(Base):
 
     __tablename__ = "audit_logs"
 
-    id        = Column(Integer, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True)
     timestamp = Column(
         DateTime(timezone=True),
         nullable=False,
         default=lambda: datetime.now(timezone.utc),
         index=True,
     )
-    username  = Column(String, nullable=False, index=True)
-    action    = Column(String, nullable=False, index=True)
-    target    = Column(String, nullable=True)   # z. B. "Zimmer 2 (VLAN 19)"
-    detail    = Column(Text,   nullable=True)   # JSON-String mit Zusatzinfos
-    success   = Column(Boolean, nullable=False, default=True)
+    username = Column(String, nullable=False, index=True)
+    action = Column(String, nullable=False, index=True)
+    target = Column(String, nullable=True)  # z. B. "Zimmer 2 (VLAN 19)"
+    detail = Column(Text, nullable=True)  # JSON-String mit Zusatzinfos
+    success = Column(Boolean, nullable=False, default=True)
 
     def __repr__(self) -> str:
         return (
@@ -137,14 +157,23 @@ def get_db():
 
 
 def _sqlite_whitelist_table_needs_migration(connection) -> bool:
-    table_exists = connection.execute(
+    templates_exists = connection.execute(
         text(
             "SELECT 1 FROM sqlite_master "
             "WHERE type = 'table' AND name = 'whitelist_templates'"
         )
     ).scalar_one_or_none()
-    if not table_exists:
+    assignments_exists = connection.execute(
+        text(
+            "SELECT 1 FROM sqlite_master "
+            "WHERE type = 'table' AND name = 'room_whitelist_assignments'"
+        )
+    ).scalar_one_or_none()
+
+    if not templates_exists:
         return False
+    if not assignments_exists:
+        return True
 
     columns = {
         row["name"]: row
@@ -152,33 +181,47 @@ def _sqlite_whitelist_table_needs_migration(connection) -> bool:
             text("PRAGMA table_info(whitelist_templates)")
         ).mappings()
     }
-    foreign_keys = list(
+    assignment_columns = {
+        row["name"]: row
+        for row in connection.execute(
+            text("PRAGMA table_info(room_whitelist_assignments)")
+        ).mappings()
+    }
+    assignment_fks = list(
         connection.execute(
-            text("PRAGMA foreign_key_list(whitelist_templates)")
+            text("PRAGMA foreign_key_list(room_whitelist_assignments)")
         ).mappings()
     )
 
-    room_id = columns.get("room_id")
-    is_active = columns.get("is_active")
-
+    has_template_room_id = "room_id" in columns
+    has_assignment_room_id = assignment_columns.get("room_id") is not None
+    has_assignment_whitelist_id = assignment_columns.get("whitelist_id") is not None
+    has_assignment_is_active = (
+        assignment_columns.get("is_active") is not None
+        and assignment_columns["is_active"]["notnull"] == 1
+    )
     has_room_fk = any(
         fk["table"] == "rooms"
         and fk["from"] == "room_id"
         and fk["to"] == "id"
         and fk["on_delete"].upper() == "CASCADE"
-        for fk in foreign_keys
+        for fk in assignment_fks
     )
-
-    has_valid_is_active = (
-        is_active is not None
-        and is_active["notnull"] == 1
+    has_whitelist_fk = any(
+        fk["table"] == "whitelist_templates"
+        and fk["from"] == "whitelist_id"
+        and fk["to"] == "id"
+        and fk["on_delete"].upper() == "CASCADE"
+        for fk in assignment_fks
     )
 
     return (
-        room_id is None
-        or room_id["notnull"] != 1
+        has_template_room_id
+        or not has_assignment_room_id
+        or not has_assignment_whitelist_id
+        or not has_assignment_is_active
         or not has_room_fk
-        or not has_valid_is_active
+        or not has_whitelist_fk
     )
 
 
@@ -187,72 +230,112 @@ def _migrate_sqlite_whitelist_table() -> None:
         if not _sqlite_whitelist_table_needs_migration(connection):
             return
 
+        assignments_exists = connection.execute(
+            text(
+                "SELECT 1 FROM sqlite_master "
+                "WHERE type = 'table' AND name = 'room_whitelist_assignments'"
+            )
+        ).scalar_one_or_none()
         columns = [
             row["name"]
             for row in connection.execute(
                 text("PRAGMA table_info(whitelist_templates)")
             ).mappings()
         ]
-        row_count = connection.execute(
-            text("SELECT COUNT(*) FROM whitelist_templates")
-        ).scalar_one()
-
-        if "room_id" not in columns and row_count:
-            raise RuntimeError(
-                "Cannot auto-migrate existing whitelist_templates rows without room_id. "
-                "Delete or manually map legacy whitelist entries first."
-            )
-
         if "room_id" in columns:
-            null_room_count = connection.execute(
-                text("SELECT COUNT(*) FROM whitelist_templates WHERE room_id IS NULL")
+            row_count = connection.execute(
+                text("SELECT COUNT(*) FROM whitelist_templates")
             ).scalar_one()
-            if null_room_count:
-                raise RuntimeError(
-                    "Cannot auto-migrate whitelist_templates rows with NULL room_id. "
-                    "Assign each legacy whitelist to a room first."
-                )
+            if row_count:
+                null_room_count = connection.execute(
+                    text(
+                        "SELECT COUNT(*) FROM whitelist_templates WHERE room_id IS NULL"
+                    )
+                ).scalar_one()
+                if null_room_count:
+                    raise RuntimeError(
+                        "Cannot auto-migrate whitelist_templates rows with NULL room_id. "
+                        "Assign each legacy whitelist to a room first."
+                    )
 
-        connection.execute(
-            text("ALTER TABLE whitelist_templates RENAME TO whitelist_templates_legacy")
-        )
+            connection.execute(
+                text(
+                    "ALTER TABLE whitelist_templates RENAME TO whitelist_templates_legacy"
+                )
+            )
+            connection.execute(
+                text(
+                    """
+                    CREATE TABLE whitelist_templates (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        name TEXT NOT NULL,
+                        urls TEXT NOT NULL
+                    )
+                    """
+                )
+            )
+            connection.execute(
+                text(
+                    """
+                    CREATE TABLE room_whitelist_assignments (
+                        room_id INTEGER NOT NULL,
+                        whitelist_id INTEGER NOT NULL,
+                        is_active BOOLEAN NOT NULL DEFAULT 0,
+                        PRIMARY KEY (room_id, whitelist_id),
+                        FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE,
+                        FOREIGN KEY (whitelist_id) REFERENCES whitelist_templates(id) ON DELETE CASCADE
+                    )
+                    """
+                )
+            )
+            connection.execute(
+                text(
+                    """
+                    INSERT INTO whitelist_templates (id, name, urls)
+                    SELECT id, name, urls
+                    FROM whitelist_templates_legacy
+                    """
+                )
+            )
+            if "is_active" in columns:
+                connection.execute(
+                    text(
+                        """
+                        INSERT INTO room_whitelist_assignments (room_id, whitelist_id, is_active)
+                        SELECT room_id, id, COALESCE(is_active, 1)
+                        FROM whitelist_templates_legacy
+                        """
+                    )
+                )
+            else:
+                connection.execute(
+                    text(
+                        """
+                        INSERT INTO room_whitelist_assignments (room_id, whitelist_id, is_active)
+                        SELECT room_id, id, 1
+                        FROM whitelist_templates_legacy
+                        """
+                    )
+                )
+            connection.execute(text("DROP TABLE whitelist_templates_legacy"))
+            return
+
+        if assignments_exists:
+            connection.execute(text("DROP TABLE room_whitelist_assignments"))
         connection.execute(
             text(
                 """
-                CREATE TABLE whitelist_templates (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    name TEXT NOT NULL,
-                    urls TEXT NOT NULL,
+                CREATE TABLE room_whitelist_assignments (
                     room_id INTEGER NOT NULL,
-                    is_active BOOLEAN NOT NULL DEFAULT 1,
-                    FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE
+                    whitelist_id INTEGER NOT NULL,
+                    is_active BOOLEAN NOT NULL DEFAULT 0,
+                    PRIMARY KEY (room_id, whitelist_id),
+                    FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE,
+                    FOREIGN KEY (whitelist_id) REFERENCES whitelist_templates(id) ON DELETE CASCADE
                 )
                 """
             )
         )
-
-        if "is_active" in columns:
-            connection.execute(
-                text(
-                    """
-                    INSERT INTO whitelist_templates (id, name, urls, room_id, is_active)
-                    SELECT id, name, urls, room_id, COALESCE(is_active, 1)
-                    FROM whitelist_templates_legacy
-                    """
-                )
-            )
-        else:
-            connection.execute(
-                text(
-                    """
-                    INSERT INTO whitelist_templates (id, name, urls, room_id, is_active)
-                    SELECT id, name, urls, room_id, 1
-                    FROM whitelist_templates_legacy
-                    """
-                )
-            )
-
-        connection.execute(text("DROP TABLE whitelist_templates_legacy"))
 
 
 def init_db():

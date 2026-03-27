@@ -69,20 +69,22 @@ class DeleteResponse(BaseModel):
 class AuditLogResponse(BaseModel):
     """Einzelner Audit-Eintrag für API-Antworten."""
 
-    id:        int
+    id: int
     timestamp: datetime
-    username:  str
-    action:    str
-    target:    Optional[str] = None
-    detail:    Optional[str] = None
-    success:   bool
+    username: str
+    action: str
+    target: Optional[str] = None
+    detail: Optional[str] = None
+    success: bool
 
     class Config:
         from_attributes = True
 
 
 class WhitelistToggle(BaseModel):
+    room_id: int
     is_active: bool
+
 
 class WhitelistUpdate(BaseModel):
     name: str

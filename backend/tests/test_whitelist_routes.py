@@ -2,7 +2,7 @@
 
 import json
 
-from app.database import Room, WhitelistTemplate
+from app.database import Room, RoomWhitelistAssignment, WhitelistTemplate
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -43,13 +43,25 @@ def test_get_whitelists_filtered_by_room(client, auth_headers, room, db):
     )
     db.add(other)
     db.flush()
+    templates = [
+        WhitelistTemplate(name="Liste A", urls=json.dumps(["google.com"])),
+        WhitelistTemplate(name="Liste B", urls=json.dumps(["bing.com"])),
+    ]
+    db.add_all(templates)
+    db.flush()
     db.add_all(
         [
-            WhitelistTemplate(
-                name="Liste A", urls=json.dumps(["google.com"]), room_id=room.id
+            RoomWhitelistAssignment(
+                room_id=room.id, whitelist_id=templates[0].id, is_active=True
             ),
-            WhitelistTemplate(
-                name="Liste B", urls=json.dumps(["bing.com"]), room_id=other.id
+            RoomWhitelistAssignment(
+                room_id=other.id, whitelist_id=templates[0].id, is_active=False
+            ),
+            RoomWhitelistAssignment(
+                room_id=room.id, whitelist_id=templates[1].id, is_active=False
+            ),
+            RoomWhitelistAssignment(
+                room_id=other.id, whitelist_id=templates[1].id, is_active=True
             ),
         ]
     )
@@ -58,8 +70,9 @@ def test_get_whitelists_filtered_by_room(client, auth_headers, room, db):
     resp = client.get(f"/api/whitelists?room_id={room.id}", headers=auth_headers)
     assert resp.status_code == 200
     results = resp.json()
-    assert len(results) == 1
-    assert results[0]["name"] == "Liste A"
+    assert len(results) == 2
+    assert [item["name"] for item in results] == ["Liste A", "Liste B"]
+    assert [item["is_active"] for item in results] == [True, False]
 
 
 def test_get_whitelists_requires_auth(client):
@@ -87,6 +100,7 @@ def test_create_whitelist_success(client, auth_headers, room):
     assert "google.com" in body["urls"]
     assert "drive.google.com" in body["urls"]
     assert body["room_id"] == room.id
+    assert body["is_active"] is True
 
 
 def test_create_whitelist_normalizes_url(client, auth_headers, room):
@@ -188,6 +202,13 @@ def test_update_whitelist_persists_to_db(client, auth_headers, room, db):
     template = db.query(WhitelistTemplate).filter_by(id=wl["id"]).first()
     assert template.name == "Neu"
     assert template.url_list == ["updated.com"]
+    assignment = (
+        db.query(RoomWhitelistAssignment)
+        .filter_by(room_id=room.id, whitelist_id=wl["id"])
+        .first()
+    )
+    assert assignment is not None
+    assert assignment.is_active is True
 
 
 def test_update_whitelist_not_found_returns_404(client, auth_headers, room):
@@ -236,3 +257,58 @@ def test_delete_whitelist_not_found_returns_404(client, auth_headers):
 def test_delete_whitelist_requires_auth(client):
     resp = client.delete("/api/whitelists/1")
     assert resp.status_code == 401
+
+
+def test_create_whitelist_visible_on_other_rooms_inactive(
+    client, auth_headers, room, db
+):
+    other = Room(
+        name="Zimmer 2", subnet="10.3.19.0/24", vlan_id=19, internet_enabled=True
+    )
+    db.add(other)
+    db.commit()
+    db.refresh(other)
+
+    created = _create_whitelist(client, auth_headers, room.id)
+
+    resp = client.get(f"/api/whitelists?room_id={other.id}", headers=auth_headers)
+    assert resp.status_code == 200
+    assert resp.json() == [
+        {
+            "id": created["id"],
+            "name": created["name"],
+            "urls": created["urls"],
+            "room_id": other.id,
+            "is_active": False,
+        }
+    ]
+
+
+def test_toggle_whitelist_changes_only_selected_room(client, auth_headers, room, db):
+    other = Room(
+        name="Zimmer 2", subnet="10.3.19.0/24", vlan_id=19, internet_enabled=True
+    )
+    db.add(other)
+    db.commit()
+    db.refresh(other)
+
+    created = _create_whitelist(client, auth_headers, room.id)
+
+    resp = client.patch(
+        f"/api/whitelists/{created['id']}/toggle",
+        json={"room_id": other.id, "is_active": True},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    assert resp.json()["room_id"] == other.id
+    assert resp.json()["is_active"] is True
+
+    room_assignments = client.get(
+        f"/api/whitelists?room_id={room.id}", headers=auth_headers
+    ).json()
+    other_assignments = client.get(
+        f"/api/whitelists?room_id={other.id}", headers=auth_headers
+    ).json()
+
+    assert room_assignments[0]["is_active"] is True
+    assert other_assignments[0]["is_active"] is True

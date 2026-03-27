@@ -6,7 +6,7 @@ from urllib import error, request
 
 from sqlalchemy.orm import Session
 
-from .database import Room, WhitelistTemplate
+from .database import Room, RoomWhitelistAssignment, WhitelistTemplate
 
 logger = logging.getLogger(__name__)
 
@@ -82,9 +82,13 @@ def _room_whitelist_entries(db: Session, room_id: int) -> list[str]:
     entries: list[str] = []
     templates = (
         db.query(WhitelistTemplate)
+        .join(
+            RoomWhitelistAssignment,
+            RoomWhitelistAssignment.whitelist_id == WhitelistTemplate.id,
+        )
         .filter(
-            WhitelistTemplate.room_id == room_id,
-            WhitelistTemplate.is_active == True,
+            RoomWhitelistAssignment.room_id == room_id,
+            RoomWhitelistAssignment.is_active == True,
         )
         .order_by(WhitelistTemplate.id.asc())
         .all()

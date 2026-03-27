@@ -1,14 +1,14 @@
-import axios from 'axios';
+import axios from "axios";
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || '',
+  baseURL: import.meta.env.VITE_API_URL || "",
   headers: {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   },
 });
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
+  const token = localStorage.getItem("token");
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -19,12 +19,12 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
       window.location.reload();
     }
     return Promise.reject(error);
-  }
+  },
 );
 
 export interface LoginResponse {
@@ -55,11 +55,11 @@ export interface Whitelist {
 export const authApi = {
   login: async (username: string, password: string): Promise<LoginResponse> => {
     const formData = new FormData();
-    formData.append('username', username);
-    formData.append('password', password);
+    formData.append("username", username);
+    formData.append("password", password);
 
-    const response = await api.post<LoginResponse>('/api/login', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
+    const response = await api.post<LoginResponse>("/api/login", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
     });
     return response.data;
   },
@@ -67,7 +67,7 @@ export const authApi = {
 
 export const roomsApi = {
   getRooms: async (): Promise<Room[]> => {
-    const response = await api.get<Room[]>('/api/rooms');
+    const response = await api.get<Room[]>("/api/rooms");
     return response.data;
   },
 
@@ -80,13 +80,13 @@ export const roomsApi = {
 };
 
 export interface AuditEntry {
-  id:        number;
+  id: number;
   timestamp: string;
-  username:  string;
-  action:    string;
-  target:    string | null;
-  detail:    string | null;
-  success:   boolean;
+  username: string;
+  action: string;
+  target: string | null;
+  detail: string | null;
+  success: boolean;
 }
 
 export const auditApi = {
@@ -96,7 +96,7 @@ export const auditApi = {
     success?: boolean;
     limit?: number;
   }): Promise<AuditEntry[]> => {
-    const response = await api.get<AuditEntry[]>('/api/audit', { params });
+    const response = await api.get<AuditEntry[]>("/api/audit", { params });
     return response.data;
   },
 };
@@ -104,7 +104,7 @@ export const auditApi = {
 export const whitelistsApi = {
   getWhitelists: async (roomId?: number): Promise<Whitelist[]> => {
     const params = roomId ? { room_id: roomId } : {};
-    const response = await api.get<Whitelist[]>('/api/whitelists', { params });
+    const response = await api.get<Whitelist[]>("/api/whitelists", { params });
     return response.data;
   },
 
@@ -112,9 +112,9 @@ export const whitelistsApi = {
     name: string,
     urls: string[],
     roomId: number,
-    isActive: boolean = true
+    isActive: boolean = true,
   ): Promise<Whitelist> => {
-    const response = await api.post<Whitelist>('/api/whitelists', {
+    const response = await api.post<Whitelist>("/api/whitelists", {
       name,
       urls,
       room_id: roomId,
@@ -128,7 +128,7 @@ export const whitelistsApi = {
     name: string,
     urls: string[],
     roomId: number,
-    isActive: boolean
+    isActive: boolean,
   ): Promise<Whitelist> => {
     const response = await api.put<Whitelist>(`/api/whitelists/${id}`, {
       name,
@@ -139,10 +139,18 @@ export const whitelistsApi = {
     return response.data;
   },
 
-  toggleWhitelist: async (id: number, isActive: boolean): Promise<Whitelist> => {
-    const response = await api.patch<Whitelist>(`/api/whitelists/${id}/toggle`, {
-      is_active: isActive,
-    });
+  toggleWhitelist: async (
+    id: number,
+    roomId: number,
+    isActive: boolean,
+  ): Promise<Whitelist> => {
+    const response = await api.patch<Whitelist>(
+      `/api/whitelists/${id}/toggle`,
+      {
+        room_id: roomId,
+        is_active: isActive,
+      },
+    );
     return response.data;
   },
 

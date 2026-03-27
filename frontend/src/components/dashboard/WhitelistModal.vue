@@ -15,9 +15,11 @@ defineProps<{
 
 const newName = defineModel<string>("newName", { required: true });
 const newUrls = defineModel<string>("newUrls", { required: true });
+const newActive = defineModel<boolean>("newActive", { required: true });
 const showForm = defineModel<boolean>("showForm", { required: true });
 const editName = defineModel<string>("editName", { required: true });
 const editUrls = defineModel<string>("editUrls", { required: true });
+const editActive = defineModel<boolean>("editActive", { required: true });
 
 const emit = defineEmits<{
     close: [];
@@ -27,6 +29,7 @@ const emit = defineEmits<{
     cancelEdit: [];
     delete: [id: number];
     edit: [item: Whitelist];
+    toggleActive: [item: Whitelist];
 }>();
 </script>
 
@@ -71,6 +74,10 @@ const emit = defineEmits<{
                 class="field field-area"
                 :placeholder="copy.dashboard.newUrlsPlaceholder"
             />
+            <label class="toggle-row">
+                <input v-model="newActive" type="checkbox" />
+                <span>{{ copy.dashboard.createActiveHint }}</span>
+            </label>
             <UiButton
                 variant="primary"
                 type="button"
@@ -103,6 +110,10 @@ const emit = defineEmits<{
                         class="field field-area"
                         :placeholder="copy.dashboard.editUrlsPlaceholder"
                     />
+                    <label class="toggle-row">
+                        <input v-model="editActive" type="checkbox" />
+                        <span>{{ copy.dashboard.editActiveHint }}</span>
+                    </label>
                     <div class="inline-actions">
                         <UiButton
                             variant="primary"
@@ -125,8 +136,35 @@ const emit = defineEmits<{
 
                 <div v-else>
                     <header class="whitelist-head">
-                        <h4>{{ wl.name }}</h4>
+                        <div class="whitelist-title">
+                            <h4>{{ wl.name }}</h4>
+                            <span
+                                class="state-pill"
+                                :class="
+                                    wl.is_active
+                                        ? 'state-pill-on'
+                                        : 'state-pill-off'
+                                "
+                            >
+                                {{
+                                    wl.is_active
+                                        ? copy.dashboard.activeOn
+                                        : copy.dashboard.activeOff
+                                }}
+                            </span>
+                        </div>
                         <div class="inline-actions">
+                            <UiButton
+                                :variant="wl.is_active ? 'light' : 'primary'"
+                                type="button"
+                                @click.stop="emit('toggleActive', wl)"
+                            >
+                                {{
+                                    wl.is_active
+                                        ? copy.dashboard.deactivate
+                                        : copy.dashboard.activate
+                                }}
+                            </UiButton>
                             <UiButton
                                 variant="icon"
                                 type="button"
@@ -206,6 +244,15 @@ const emit = defineEmits<{
     font-family: var(--font-mono);
 }
 
+.toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.75rem;
+    color: var(--color-muted);
+    font-size: 0.88rem;
+}
+
 .empty {
     border: 1px dashed var(--color-border);
     border-radius: var(--radius-lg);
@@ -242,9 +289,35 @@ const emit = defineEmits<{
     margin-bottom: 0.45rem;
 }
 
+.whitelist-title {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.55rem;
+}
+
 .whitelist-head h4 {
     margin: 0;
     font-size: 0.98rem;
+}
+
+.state-pill {
+    display: inline-flex;
+    align-items: center;
+    border-radius: 999px;
+    padding: 0.2rem 0.55rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.state-pill-on {
+    background: rgba(48, 122, 39, 0.12);
+    color: #2e6f24;
+}
+
+.state-pill-off {
+    background: rgba(110, 113, 122, 0.12);
+    color: #5a5e66;
 }
 
 .inline-actions {

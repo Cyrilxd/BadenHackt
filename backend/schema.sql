@@ -19,8 +19,14 @@ CREATE TABLE IF NOT EXISTS rooms (
 CREATE TABLE IF NOT EXISTS whitelist_templates (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
-    urls TEXT NOT NULL,
+    urls TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS room_whitelist_assignments (
     room_id INTEGER NOT NULL,
-    is_active BOOLEAN NOT NULL DEFAULT 1,
-    FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE
+    whitelist_id INTEGER NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT 0,
+    PRIMARY KEY (room_id, whitelist_id),
+    FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE,
+    FOREIGN KEY (whitelist_id) REFERENCES whitelist_templates(id) ON DELETE CASCADE
 );

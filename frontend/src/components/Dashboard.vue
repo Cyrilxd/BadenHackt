@@ -67,7 +67,14 @@ const editWhitelistIsActive = ref(true);
 
 const selectedRoomWhitelists = computed(() => {
     if (!selectedRoomId.value) return [];
-    return whitelists.value.filter((w) => w.room_id === selectedRoomId.value);
+    return whitelists.value
+        .filter((w) => w.room_id === selectedRoomId.value)
+        .sort((a, b) => {
+            if (a.is_active !== b.is_active) {
+                return a.is_active ? -1 : 1;
+            }
+            return a.name.localeCompare(b.name, "de-CH");
+        });
 });
 
 const selectedRoom = computed(
@@ -265,14 +272,14 @@ async function createWhitelist() {
     error.value = "";
 
     try {
-        const whitelist = await whitelistsApi.createWhitelist(
+        await whitelistsApi.createWhitelist(
             cleanedName,
             urls,
             selectedRoomId.value,
             newWhitelistIsActive.value,
         );
 
-        whitelists.value.push(whitelist);
+        await loadData();
 
         newWhitelistName.value = "";
         newWhitelistUrls.value = "";
@@ -332,20 +339,14 @@ async function updateWhitelist() {
     error.value = "";
 
     try {
-        const updatedWhitelist = await whitelistsApi.updateWhitelist(
+        await whitelistsApi.updateWhitelist(
             editingWhitelistId.value,
             cleanedName,
             urls,
             selectedRoomId.value,
             editWhitelistIsActive.value,
         );
-
-        const index = whitelists.value.findIndex(
-            (w) => w.id === updatedWhitelist.id,
-        );
-        if (index !== -1) {
-            whitelists.value[index] = updatedWhitelist;
-        }
+        await loadData();
 
         cancelEditWhitelist();
         showToast(copy.toast.whitelistUpdated);
@@ -358,21 +359,21 @@ async function updateWhitelist() {
 }
 
 async function toggleWhitelistActive(wl: Whitelist) {
+    if (selectedRoomId.value === null) {
+        error.value = copy.dashboard.noSelection;
+        return;
+    }
+
     loadingModal.value = true;
     error.value = "";
 
     try {
         const updatedWhitelist = await whitelistsApi.toggleWhitelist(
             wl.id,
+            selectedRoomId.value,
             !wl.is_active,
         );
-
-        const index = whitelists.value.findIndex(
-            (w) => w.id === updatedWhitelist.id,
-        );
-        if (index !== -1) {
-            whitelists.value[index] = updatedWhitelist;
-        }
+        await loadData();
 
         if (editingWhitelistId.value === updatedWhitelist.id) {
             editWhitelistIsActive.value = updatedWhitelist.is_active;
@@ -401,7 +402,7 @@ async function doDeleteWhitelist(id: number) {
 
     try {
         await whitelistsApi.deleteWhitelist(id);
-        whitelists.value = whitelists.value.filter((w) => w.id !== id);
+        await loadData();
 
         if (editingWhitelistId.value === id) {
             cancelEditWhitelist();
@@ -473,9 +474,11 @@ async function doDeleteWhitelist(id: number) {
             :error-message="error"
             v-model:new-name="newWhitelistName"
             v-model:new-urls="newWhitelistUrls"
+            v-model:new-active="newWhitelistIsActive"
             v-model:show-form="showWhitelistForm"
             v-model:edit-name="editWhitelistName"
             v-model:edit-urls="editWhitelistUrls"
+            v-model:edit-active="editWhitelistIsActive"
             @close="closeWhitelistModal"
             @toggleForm="showWhitelistForm = !showWhitelistForm"
             @create="createWhitelist"
