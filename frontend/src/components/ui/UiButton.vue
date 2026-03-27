@@ -107,13 +107,15 @@ withDefaults(
 
 .ui-btn--roomLock {
   flex: 1;
-  border: 1px solid var(--color-status-on-border);
-  background: var(--color-status-on-bg);
-  color: var(--color-status-on-fg);
+  border: 1px solid var(--color-danger-outline-border);
+  background: var(--color-error-bg);
+  color: var(--color-danger);
 }
 
 .ui-btn--roomLock:hover:not(:disabled) {
-  background: var(--color-status-on-hover-bg);
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+  color: var(--color-surface);
 }
 
 .ui-btn--roomUnlock {
@@ -121,6 +123,10 @@ withDefaults(
   border: 1px solid transparent;
   background: linear-gradient(135deg, var(--color-primary), var(--color-primary-strong));
   color: var(--color-surface);
+}
+
+.ui-btn--roomUnlock:hover:not(:disabled) {
+  background: linear-gradient(135deg, var(--color-primary-strong), var(--color-primary-strong));
 }
 
 .ui-btn--roomOutline {

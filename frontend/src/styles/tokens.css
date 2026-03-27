@@ -21,6 +21,12 @@
   --color-status-off-bg: #faecec;
   --color-status-off-fg: #a13333;
 
+  /* Room card – gesperrt */
+  --color-room-locked-border: #e0a0a0;
+  --color-room-locked-accent: #cc4f4f;
+  --color-room-locked-bg: #fff8f8;
+  --color-room-locked-hover-shadow: 0 12px 26px rgba(180, 40, 40, 0.12);
+
   /* Fehler / destruktiv (nur wo nötig, z. B. Löschen) */
   --color-danger: #cc4f4f;
   --color-danger-strong: #b13f3f;

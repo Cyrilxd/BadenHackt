@@ -37,6 +37,7 @@ const emit = defineEmits<{
             class="status-pill"
             :class="room.internet_enabled ? 'status-on' : 'status-off'"
         >
+            <span class="status-dot"></span>
             {{
                 room.internet_enabled ? copy.room.statusOn : copy.room.statusOff
             }}
@@ -104,22 +105,32 @@ const emit = defineEmits<{
     flex-direction: column;
     cursor: pointer;
     border: 1px solid var(--color-border);
+    border-left: 4px solid var(--color-border);
     border-radius: var(--radius-xl);
     background: var(--color-surface);
     padding: 1rem 1.15rem 0.85rem;
     transition:
         border-color 0.15s ease,
-        box-shadow 0.15s ease;
+        box-shadow 0.15s ease,
+        background 0.15s ease;
 }
 
 .room-card:hover {
     border-color: var(--color-primary);
+    border-left-color: var(--color-primary);
     box-shadow: var(--shadow-room-hover);
 }
 
 .room-card-disabled {
-    border-color: var(--color-room-disabled-border);
-    background: var(--color-room-disabled-bg);
+    border-color: var(--color-room-locked-border);
+    border-left-color: var(--color-room-locked-accent);
+    background: var(--color-room-locked-bg);
+}
+
+.room-card-disabled:hover {
+    border-color: var(--color-room-locked-accent);
+    border-left-color: var(--color-room-locked-accent);
+    box-shadow: var(--color-room-locked-hover-shadow);
 }
 
 .room-head {
@@ -138,12 +149,13 @@ const emit = defineEmits<{
 
 .vlan-badge {
     flex-shrink: 0;
+    border: 1px solid var(--color-border);
     border-radius: var(--radius-pill);
-    background: var(--color-status-on-bg);
-    padding: 0.25rem 0.55rem;
-    color: var(--color-status-on-fg);
+    background: var(--color-surface-muted);
+    padding: 0.2rem 0.55rem;
+    color: var(--color-muted);
     font-size: 0.72rem;
-    font-weight: 700;
+    font-weight: 600;
 }
 
 .subnet {
@@ -154,12 +166,22 @@ const emit = defineEmits<{
 }
 
 .status-pill {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
     align-self: flex-start;
     border-radius: var(--radius-pill);
-    padding: 0.28rem 0.6rem;
+    padding: 0.28rem 0.65rem 0.28rem 0.5rem;
     font-size: 0.76rem;
     font-weight: 700;
+}
+
+.status-dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
 }
 
 .status-on {
@@ -167,9 +189,17 @@ const emit = defineEmits<{
     color: var(--color-status-on-fg);
 }
 
+.status-on .status-dot {
+    background: var(--color-status-on-fg);
+}
+
 .status-off {
     background: var(--color-status-off-bg);
     color: var(--color-status-off-fg);
+}
+
+.status-off .status-dot {
+    background: var(--color-status-off-fg);
 }
 
 .meta-pill {
