@@ -94,6 +94,15 @@ export const whitelistsApi = {
     return response.data;
   },
 
+  updateWhitelist: async (id: number, name: string, urls: string[], roomId: number): Promise<Whitelist> => {
+    const response = await api.put<Whitelist>(`/api/whitelists/${id}`, {
+      name,
+      urls,
+      room_id: roomId,
+    });
+    return response.data;
+  },
+
   deleteWhitelist: async (id: number): Promise<void> => {
     await api.delete(`/api/whitelists/${id}`);
   },

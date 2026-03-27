@@ -16,6 +16,7 @@ from .schemas import (
     Token,
     WhitelistCreate,
     WhitelistResponse,
+    WhitelistUpdate,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -216,6 +217,45 @@ async def delete_whitelist(
 
     return {"success": True}
 
+@app.put("/api/whitelists/{whitelist_id}", response_model=WhitelistResponse)
+async def update_whitelist(
+    whitelist_id: int,
+    whitelist: WhitelistUpdate,
+    current_user: User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db),
+):
+    template = (
+        db.query(WhitelistTemplate)
+        .filter(WhitelistTemplate.id == whitelist_id)
+        .first()
+    )
+    if not template:
+        raise HTTPException(status_code=404, detail="Whitelist not found")
+
+    room = db.query(Room).filter(Room.id == whitelist.room_id).first()
+    if not room:
+        raise HTTPException(status_code=404, detail="Room not found")
+
+    template.name = whitelist.name
+    template.urls = json.dumps(whitelist.urls)
+    template.room_id = whitelist.room_id
+
+    db.commit()
+    db.refresh(template)
+
+    logger.info(
+        "User %s updated whitelist '%s' for %s",
+        current_user.username,
+        template.name,
+        room.name,
+    )
+
+    return {
+        "id": template.id,
+        "name": template.name,
+        "urls": json.loads(template.urls),
+        "room_id": template.room_id,
+    }
 
 @app.get("/api/health")
 async def health_check():

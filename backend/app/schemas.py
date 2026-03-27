@@ -51,3 +51,16 @@ class WhitelistResponse(BaseModel):
 
 class DeleteResponse(BaseModel):
     success: bool
+
+class WhitelistUpdate(BaseModel):
+    name: str
+    urls: List[str]
+    room_id: int
+
+    @field_validator("urls")
+    @classmethod
+    def clean_urls(cls, v: List[str]) -> List[str]:
+        cleaned = [url.strip() for url in v if url.strip()]
+        if not cleaned:
+            raise ValueError("Mindestens eine URL erforderlich")
+        return cleaned

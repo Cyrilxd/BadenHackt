@@ -8,10 +8,15 @@ const selectedRoomId = ref<number | null>(null)
 const loading = ref(false)
 const error = ref('')
 
-// Whitelist form
+// Create form
 const showWhitelistForm = ref(false)
 const newWhitelistName = ref('')
 const newWhitelistUrls = ref('')
+
+// Edit form
+const editingWhitelistId = ref<number | null>(null)
+const editWhitelistName = ref('')
+const editWhitelistUrls = ref('')
 
 const selectedRoomWhitelists = computed(() => {
   if (!selectedRoomId.value) return []
@@ -24,6 +29,7 @@ onMounted(async () => {
 
 async function loadData() {
   loading.value = true
+  error.value = ''
   try {
     rooms.value = await roomsApi.getRooms()
     whitelists.value = await whitelistsApi.getWhitelists()
@@ -37,7 +43,7 @@ async function loadData() {
 async function toggleInternet(room: Room) {
   loading.value = true
   error.value = ''
-  
+
   try {
     const newState = !room.internet_enabled
     await roomsApi.toggleInternet(room.id, newState)
@@ -52,32 +58,112 @@ async function toggleInternet(room: Room) {
 function selectRoom(roomId: number) {
   selectedRoomId.value = roomId
   showWhitelistForm.value = false
+  cancelEditWhitelist()
 }
 
 async function createWhitelist() {
-  if (!newWhitelistName.value || !newWhitelistUrls.value || !selectedRoomId.value) return
+  if (!selectedRoomId.value) {
+    error.value = 'Bitte zuerst ein Zimmer auswählen'
+    return
+  }
+
+  const cleanedName = newWhitelistName.value.trim()
+  const urls = newWhitelistUrls.value
+    .split('\n')
+    .map(url => url.trim())
+    .filter(Boolean)
+
+  if (!cleanedName) {
+    error.value = 'Bitte einen Namen für die Whitelist eingeben'
+    return
+  }
+
+  if (urls.length === 0) {
+    error.value = 'Bitte mindestens eine URL eingeben'
+    return
+  }
 
   loading.value = true
   error.value = ''
 
   try {
-    const urls = newWhitelistUrls.value
-      .split('\n')
-      .map(url => url.trim())
-      .filter(Boolean)
     const whitelist = await whitelistsApi.createWhitelist(
-      newWhitelistName.value,
+      cleanedName,
       urls,
       selectedRoomId.value
     )
+
     whitelists.value.push(whitelist)
-    
-    // Reset form
+
     newWhitelistName.value = ''
     newWhitelistUrls.value = ''
     showWhitelistForm.value = false
   } catch (err: any) {
-    error.value = 'Fehler beim Erstellen der Whitelist'
+    error.value =
+      err?.response?.data?.detail ||
+      'Fehler beim Erstellen der Whitelist'
+  } finally {
+    loading.value = false
+  }
+}
+
+function startEditWhitelist(wl: Whitelist) {
+  editingWhitelistId.value = wl.id
+  editWhitelistName.value = wl.name
+  editWhitelistUrls.value = wl.urls.join('\n')
+  showWhitelistForm.value = false
+  error.value = ''
+}
+
+function cancelEditWhitelist() {
+  editingWhitelistId.value = null
+  editWhitelistName.value = ''
+  editWhitelistUrls.value = ''
+}
+
+async function updateWhitelist() {
+  if (editingWhitelistId.value === null || selectedRoomId.value === null) {
+    error.value = 'Keine Whitelist oder kein Zimmer ausgewählt'
+    return
+  }
+
+  const cleanedName = editWhitelistName.value.trim()
+  const urls = editWhitelistUrls.value
+    .split('\n')
+    .map(url => url.trim())
+    .filter(Boolean)
+
+  if (!cleanedName) {
+    error.value = 'Bitte einen Namen für die Whitelist eingeben'
+    return
+  }
+
+  if (urls.length === 0) {
+    error.value = 'Bitte mindestens eine URL eingeben'
+    return
+  }
+
+  loading.value = true
+  error.value = ''
+
+  try {
+    const updatedWhitelist = await whitelistsApi.updateWhitelist(
+      editingWhitelistId.value,
+      cleanedName,
+      urls,
+      selectedRoomId.value
+    )
+
+    const index = whitelists.value.findIndex(w => w.id === updatedWhitelist.id)
+    if (index !== -1) {
+      whitelists.value[index] = updatedWhitelist
+    }
+
+    cancelEditWhitelist()
+  } catch (err: any) {
+    error.value =
+      err?.response?.data?.detail ||
+      'Fehler beim Aktualisieren der Whitelist'
   } finally {
     loading.value = false
   }
@@ -87,11 +173,19 @@ async function deleteWhitelist(id: number) {
   if (!confirm('Whitelist wirklich löschen?')) return
 
   loading.value = true
+  error.value = ''
+
   try {
     await whitelistsApi.deleteWhitelist(id)
     whitelists.value = whitelists.value.filter(w => w.id !== id)
+
+    if (editingWhitelistId.value === id) {
+      cancelEditWhitelist()
+    }
   } catch (err: any) {
-    error.value = 'Fehler beim Löschen'
+    error.value =
+      err?.response?.data?.detail ||
+      'Fehler beim Löschen'
   } finally {
     loading.value = false
   }
@@ -103,25 +197,24 @@ async function deleteWhitelist(id: number) {
     <div class="container">
       <div v-if="error" class="error-banner">{{ error }}</div>
 
-      <!-- Internet Control - ALL 7 Rooms -->
       <section class="section">
         <h2>🌐 Internet-Steuerung (Alle Zimmer)</h2>
-        
+
         <div v-if="loading && rooms.length === 0" class="loading">Lädt...</div>
-        
+
         <div v-else class="room-grid">
-          <div 
-            v-for="room in rooms" 
-            :key="room.id" 
+          <div
+            v-for="room in rooms"
+            :key="room.id"
             class="room-card"
-            :class="{ 'selected': selectedRoomId === room.id }"
+            :class="{ selected: selectedRoomId === room.id }"
             @click="selectRoom(room.id)"
           >
             <div class="room-header">
               <h3>{{ room.name }}</h3>
               <span class="subnet">VLAN {{ room.vlan_id }}</span>
             </div>
-            
+
             <div class="room-status">
               <span :class="['status-indicator', room.internet_enabled ? 'enabled' : 'disabled']">
                 {{ room.internet_enabled ? '🟢 Aktiv' : '🔴 Gesperrt' }}
@@ -139,7 +232,6 @@ async function deleteWhitelist(id: number) {
         </div>
       </section>
 
-      <!-- Whitelists - Per Room -->
       <section v-if="selectedRoomId" class="section">
         <div class="section-header">
           <h2>📋 Whitelist: {{ rooms.find(r => r.id === selectedRoomId)?.name }}</h2>
@@ -148,7 +240,6 @@ async function deleteWhitelist(id: number) {
           </button>
         </div>
 
-        <!-- Create Form -->
         <div v-if="showWhitelistForm" class="whitelist-form">
           <input
             v-model="newWhitelistName"
@@ -167,20 +258,49 @@ async function deleteWhitelist(id: number) {
           </button>
         </div>
 
-        <!-- List -->
         <div v-if="selectedRoomWhitelists.length === 0 && !showWhitelistForm" class="empty-state">
           Keine Whitelists für dieses Zimmer
         </div>
 
         <div v-else class="whitelist-grid">
           <div v-for="wl in selectedRoomWhitelists" :key="wl.id" class="whitelist-card">
-            <div class="whitelist-header">
-              <h4>{{ wl.name }}</h4>
-              <button @click="deleteWhitelist(wl.id)" class="btn-delete">🗑️</button>
+            <div v-if="editingWhitelistId === wl.id">
+              <div class="edit-form">
+                <input
+                  v-model="editWhitelistName"
+                  type="text"
+                  placeholder="Whitelist-Name"
+                  class="input"
+                />
+                <textarea
+                  v-model="editWhitelistUrls"
+                  rows="5"
+                  class="textarea"
+                  placeholder="URLs (eine pro Zeile)"
+                ></textarea>
+                <div class="edit-actions">
+                  <button @click.stop="updateWhitelist" :disabled="loading" class="btn-primary">
+                    💾 Speichern
+                  </button>
+                  <button @click.stop="cancelEditWhitelist" :disabled="loading" class="btn-secondary">
+                    Abbrechen
+                  </button>
+                </div>
+              </div>
             </div>
-            <ul class="url-list">
-              <li v-for="(url, idx) in wl.urls" :key="idx">{{ url }}</li>
-            </ul>
+
+            <div v-else>
+              <div class="whitelist-header">
+                <h4>{{ wl.name }}</h4>
+                <div class="whitelist-actions">
+                  <button @click.stop="startEditWhitelist(wl)" class="btn-edit">✏️</button>
+                  <button @click.stop="deleteWhitelist(wl.id)" class="btn-delete">🗑️</button>
+                </div>
+              </div>
+              <ul class="url-list">
+                <li v-for="(url, idx) in wl.urls" :key="idx">{{ url }}</li>
+              </ul>
+            </div>
           </div>
         </div>
       </section>
@@ -349,7 +469,8 @@ h2 {
   margin-bottom: 1.5rem;
 }
 
-.input, .textarea {
+.input,
+.textarea {
   width: 100%;
   padding: 0.75rem;
   border: 2px solid var(--border);
@@ -377,6 +498,21 @@ h2 {
 
 .btn-primary:hover {
   transform: translateY(-2px);
+}
+
+.btn-secondary {
+  padding: 0.75rem 1.5rem;
+  background: var(--bg-light);
+  color: var(--text);
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.3s;
+}
+
+.btn-secondary:hover {
+  border-color: var(--primary);
 }
 
 .empty-state {
@@ -425,6 +561,25 @@ h2 {
   color: var(--text);
 }
 
+.whitelist-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.btn-edit {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.1rem;
+  opacity: 0.7;
+  transition: opacity 0.3s;
+}
+
+.btn-edit:hover {
+  opacity: 1;
+}
+
 .btn-delete {
   background: none;
   border: none;
@@ -456,5 +611,16 @@ h2 {
   text-align: center;
   padding: 2rem;
   color: var(--text-muted);
+}
+
+.edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.edit-actions {
+  display: flex;
+  gap: 0.75rem;
 }
 </style>
