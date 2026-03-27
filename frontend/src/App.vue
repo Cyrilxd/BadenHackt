@@ -4,7 +4,7 @@ import Login from './components/Login.vue'
 import Dashboard from './components/Dashboard.vue'
 
 const isAuthenticated = ref(false)
-const user = ref<{ username: string; room_name: string } | null>(null)
+const user = ref<{ username: string; role: string } | null>(null)
 
 onMounted(() => {
   const token = localStorage.getItem('token')
@@ -37,7 +37,7 @@ function handleLogout() {
       <div class="container">
         <h1>🌐 Internet EIN/AUS</h1>
         <div class="user-info">
-          <span>{{ user?.room_name }} ({{ user?.username }})</span>
+          <span>👤 {{ user?.username }}</span>
           <button @click="handleLogout" class="btn-logout">Abmelden</button>
         </div>
       </div>
@@ -70,7 +70,7 @@ function handleLogout() {
 }
 
 .header .container {
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
   padding: 0 2rem;
   display: flex;
@@ -89,6 +89,7 @@ function handleLogout() {
   align-items: center;
   gap: 1rem;
   color: #666;
+  font-weight: 500;
 }
 
 .btn-logout {

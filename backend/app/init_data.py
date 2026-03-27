@@ -13,7 +13,12 @@ ROOMS = [
     {"vlan_id": 119, "subnet": "10.3.119.0/24", "name": "Zimmer 7"},
 ]
 
-DEFAULT_PASSWORD = "admin123"
+# Test users - all can control all rooms
+TEST_USERS = [
+    {"username": "lehrer", "password": "admin123", "name": "Test Lehrer"},
+    {"username": "mueller", "password": "admin123", "name": "Herr Müller"},
+    {"username": "schmidt", "password": "admin123", "name": "Frau Schmidt"},
+]
 
 def init_test_data():
     """Create rooms and users for testing"""
@@ -36,29 +41,32 @@ def init_test_data():
         
         db.commit()
         
-        # Create users (one admin per room)
-        for room_data in ROOMS:
-            username = f"vlan{room_data['vlan_id']}"
-            existing_user = db.query(User).filter(User.username == username).first()
+        # Create test users (all have access to all rooms)
+        for user_data in TEST_USERS:
+            existing_user = db.query(User).filter(User.username == user_data["username"]).first()
             
             if not existing_user:
                 user = User(
-                    username=username,
-                    password_hash=get_password_hash(DEFAULT_PASSWORD),
-                    vlan_id=room_data["vlan_id"],
-                    room_name=room_data["name"]
+                    username=user_data["username"],
+                    password_hash=get_password_hash(user_data["password"]),
+                    vlan_id=0,  # 0 = access to all rooms
+                    room_name=user_data["name"]
                 )
                 db.add(user)
-                print(f"✅ Created user: {username} (password: {DEFAULT_PASSWORD})")
+                print(f"✅ Created user: {user_data['username']} (password: {user_data['password']}) - {user_data['name']}")
         
         db.commit()
         
         print("\n🎉 Database initialized successfully!")
-        print("\n📋 Test Logins:")
-        print("="*50)
+        print("\n📋 Test Logins (all users can control ALL rooms):")
+        print("="*60)
+        for user_data in TEST_USERS:
+            print(f"  Username: {user_data['username']:<10} | Password: {user_data['password']}")
+        print("="*60)
+        print("\n🏫 Rooms:")
         for room_data in ROOMS:
-            print(f"  Username: vlan{room_data['vlan_id']:<3} | Password: {DEFAULT_PASSWORD} | {room_data['name']}")
-        print("="*50)
+            print(f"  - {room_data['name']} (VLAN {room_data['vlan_id']}, {room_data['subnet']})")
+        print("="*60)
         
     except Exception as e:
         print(f"❌ Error initializing data: {e}")

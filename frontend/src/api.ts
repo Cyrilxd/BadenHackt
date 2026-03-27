@@ -23,8 +23,7 @@ export interface LoginResponse {
   token_type: string;
   user: {
     username: string;
-    vlan_id: number;
-    room_name: string;
+    role: string;
   };
 }
 
@@ -71,13 +70,14 @@ export const roomsApi = {
 };
 
 export const whitelistsApi = {
-  getWhitelists: async (): Promise<Whitelist[]> => {
-    const response = await api.get<Whitelist[]>('/api/whitelists');
+  getWhitelists: async (roomId?: number): Promise<Whitelist[]> => {
+    const params = roomId ? { room_id: roomId } : {};
+    const response = await api.get<Whitelist[]>('/api/whitelists', { params });
     return response.data;
   },
   
-  createWhitelist: async (name: string, urls: string[]): Promise<Whitelist> => {
-    const response = await api.post<Whitelist>('/api/whitelists', { name, urls });
+  createWhitelist: async (name: string, urls: string[], roomId: number): Promise<Whitelist> => {
+    const response = await api.post<Whitelist>('/api/whitelists', { name, urls, room_id: roomId });
     return response.data;
   },
   

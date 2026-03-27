@@ -14,7 +14,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Initialize FastAPI
-app = FastAPI(title="Internet EIN/AUS API", version="1.0.0")
+app = FastAPI(title="Internet EIN/AUS API", version="2.0.0")
 
 # CORS
 app.add_middleware(
@@ -52,6 +52,7 @@ class RoomResponse(BaseModel):
 class WhitelistCreate(BaseModel):
     name: str
     urls: List[str]
+    room_id: int
 
 class WhitelistResponse(BaseModel):
     id: int
@@ -65,7 +66,7 @@ class WhitelistResponse(BaseModel):
 # Routes
 @app.post("/api/login", response_model=Token)
 async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    """Login endpoint - returns JWT token"""
+    """Login endpoint - returns JWT token. ANY valid user can access ALL rooms."""
     user = db.query(User).filter(User.username == form_data.username).first()
     
     if not user or not auth.verify_password(form_data.password, user.password_hash):
@@ -82,24 +83,22 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = 
         "token_type": "bearer",
         "user": {
             "username": user.username,
-            "vlan_id": user.vlan_id,
-            "room_name": user.room_name
+            "role": "teacher"  # All users are teachers with full access
         }
     }
 
 @app.get("/api/rooms", response_model=List[RoomResponse])
 async def get_rooms(current_user: User = Depends(auth.get_current_user), db: Session = Depends(get_db)):
-    """Get room(s) for current user - only their assigned room"""
-    room = db.query(Room).filter(Room.vlan_id == current_user.vlan_id).first()
-    
-    if not room:
-        raise HTTPException(status_code=404, detail="Room not found")
+    """Get ALL rooms - every teacher can see and control all rooms"""
+    rooms = db.query(Room).order_by(Room.vlan_id).all()
     
     # Update internet_enabled status from actual firewall state
-    room.internet_enabled = firewall.FirewallManager.get_vlan_status(room.subnet)
+    for room in rooms:
+        room.internet_enabled = firewall.FirewallManager.get_vlan_status(room.subnet)
+    
     db.commit()
     
-    return [room]
+    return rooms
 
 @app.post("/api/rooms/{room_id}/toggle")
 async def toggle_internet(
@@ -108,15 +107,11 @@ async def toggle_internet(
     current_user: User = Depends(auth.get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Toggle internet access for a room"""
+    """Toggle internet access for ANY room - no authorization check (all teachers can control all rooms)"""
     room = db.query(Room).filter(Room.id == room_id).first()
     
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
-    
-    # Check if user is authorized for this room
-    if room.vlan_id != current_user.vlan_id:
-        raise HTTPException(status_code=403, detail="Not authorized for this room")
     
     # Apply firewall rule
     fw_manager = firewall.FirewallManager()
@@ -133,17 +128,23 @@ async def toggle_internet(
     room.internet_enabled = enable
     db.commit()
     
-    return {"success": True, "internet_enabled": enable}
+    logger.info(f"User {current_user.username} {'enabled' if enable else 'disabled'} internet for {room.name} (VLAN {room.vlan_id})")
+    
+    return {"success": True, "internet_enabled": enable, "room": room.name}
 
-@app.get("/api/whitelists", response_model=List[WhitelistResponse])
-async def get_whitelists(current_user: User = Depends(auth.get_current_user), db: Session = Depends(get_db)):
-    """Get whitelist templates for current user's room"""
-    room = db.query(Room).filter(Room.vlan_id == current_user.vlan_id).first()
+@app.get("/api/whitelists")
+async def get_whitelists(
+    room_id: int = None,
+    current_user: User = Depends(auth.get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Get whitelist templates. If room_id provided, filter by room. Otherwise return all."""
+    query = db.query(WhitelistTemplate)
     
-    if not room:
-        raise HTTPException(status_code=404, detail="Room not found")
+    if room_id:
+        query = query.filter(WhitelistTemplate.room_id == room_id)
     
-    templates = db.query(WhitelistTemplate).filter(WhitelistTemplate.room_id == room.id).all()
+    templates = query.all()
     
     # Parse JSON urls
     result = []
@@ -163,8 +164,8 @@ async def create_whitelist(
     current_user: User = Depends(auth.get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Create a new whitelist template"""
-    room = db.query(Room).filter(Room.vlan_id == current_user.vlan_id).first()
+    """Create a new whitelist template for a specific room"""
+    room = db.query(Room).filter(Room.id == whitelist.room_id).first()
     
     if not room:
         raise HTTPException(status_code=404, detail="Room not found")
@@ -172,12 +173,14 @@ async def create_whitelist(
     new_template = WhitelistTemplate(
         name=whitelist.name,
         urls=json.dumps(whitelist.urls),
-        room_id=room.id
+        room_id=whitelist.room_id
     )
     
     db.add(new_template)
     db.commit()
     db.refresh(new_template)
+    
+    logger.info(f"User {current_user.username} created whitelist '{whitelist.name}' for {room.name}")
     
     return {
         "id": new_template.id,
@@ -198,17 +201,16 @@ async def delete_whitelist(
     if not template:
         raise HTTPException(status_code=404, detail="Whitelist not found")
     
-    # Check authorization
-    room = db.query(Room).filter(Room.id == template.room_id, Room.vlan_id == current_user.vlan_id).first()
-    if not room:
-        raise HTTPException(status_code=403, detail="Not authorized")
+    room = db.query(Room).filter(Room.id == template.room_id).first()
     
     db.delete(template)
     db.commit()
+    
+    logger.info(f"User {current_user.username} deleted whitelist '{template.name}' from {room.name if room else 'unknown room'}")
     
     return {"success": True}
 
 @app.get("/api/health")
 async def health_check():
     """Health check endpoint"""
-    return {"status": "ok", "service": "internet-control-api"}
+    return {"status": "ok", "service": "internet-control-api", "version": "2.0.0"}

@@ -1,13 +1,14 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { roomsApi, whitelistsApi, type Room, type Whitelist } from '../api'
 
 defineProps<{
-  user: { username: string; room_name: string } | null
+  user: { username: string; room_name?: string } | null
 }>()
 
 const rooms = ref<Room[]>([])
 const whitelists = ref<Whitelist[]>([])
+const selectedRoomId = ref<number | null>(null)
 const loading = ref(false)
 const error = ref('')
 
@@ -15,6 +16,11 @@ const error = ref('')
 const showWhitelistForm = ref(false)
 const newWhitelistName = ref('')
 const newWhitelistUrls = ref('')
+
+const selectedRoomWhitelists = computed(() => {
+  if (!selectedRoomId.value) return []
+  return whitelists.value.filter(w => w.room_id === selectedRoomId.value)
+})
 
 onMounted(async () => {
   await loadData()
@@ -47,15 +53,24 @@ async function toggleInternet(room: Room) {
   }
 }
 
+function selectRoom(roomId: number) {
+  selectedRoomId.value = roomId
+  showWhitelistForm.value = false
+}
+
 async function createWhitelist() {
-  if (!newWhitelistName.value || !newWhitelistUrls.value) return
+  if (!newWhitelistName.value || !newWhitelistUrls.value || !selectedRoomId.value) return
 
   loading.value = true
   error.value = ''
 
   try {
     const urls = newWhitelistUrls.value.split('\n').filter(url => url.trim())
-    const whitelist = await whitelistsApi.createWhitelist(newWhitelistName.value, urls)
+    const whitelist = await whitelistsApi.createWhitelist(
+      newWhitelistName.value,
+      urls,
+      selectedRoomId.value
+    )
     whitelists.value.push(whitelist)
     
     // Reset form
@@ -89,17 +104,23 @@ async function deleteWhitelist(id: number) {
     <div class="container">
       <div v-if="error" class="error-banner">{{ error }}</div>
 
-      <!-- Internet Control -->
+      <!-- Internet Control - ALL 7 Rooms -->
       <section class="section">
-        <h2>🌐 Internet-Steuerung</h2>
+        <h2>🌐 Internet-Steuerung (Alle Zimmer)</h2>
         
         <div v-if="loading && rooms.length === 0" class="loading">Lädt...</div>
         
         <div v-else class="room-grid">
-          <div v-for="room in rooms" :key="room.id" class="room-card">
+          <div 
+            v-for="room in rooms" 
+            :key="room.id" 
+            class="room-card"
+            :class="{ 'selected': selectedRoomId === room.id }"
+            @click="selectRoom(room.id)"
+          >
             <div class="room-header">
               <h3>{{ room.name }}</h3>
-              <span class="subnet">{{ room.subnet }}</span>
+              <span class="subnet">VLAN {{ room.vlan_id }}</span>
             </div>
             
             <div class="room-status">
@@ -109,20 +130,20 @@ async function deleteWhitelist(id: number) {
             </div>
 
             <button
-              @click="toggleInternet(room)"
+              @click.stop="toggleInternet(room)"
               :disabled="loading"
               :class="['btn-toggle', room.internet_enabled ? 'btn-danger' : 'btn-success']"
             >
-              {{ room.internet_enabled ? '🚫 Internet sperren' : '✅ Internet freigeben' }}
+              {{ room.internet_enabled ? '🚫 Sperren' : '✅ Freigeben' }}
             </button>
           </div>
         </div>
       </section>
 
-      <!-- Whitelists -->
-      <section class="section">
+      <!-- Whitelists - Per Room -->
+      <section v-if="selectedRoomId" class="section">
         <div class="section-header">
-          <h2>📋 Whitelist-Management</h2>
+          <h2>📋 Whitelist: {{ rooms.find(r => r.id === selectedRoomId)?.name }}</h2>
           <button @click="showWhitelistForm = !showWhitelistForm" class="btn-add">
             {{ showWhitelistForm ? '❌ Abbrechen' : '➕ Neue Whitelist' }}
           </button>
@@ -148,12 +169,12 @@ async function deleteWhitelist(id: number) {
         </div>
 
         <!-- List -->
-        <div v-if="whitelists.length === 0" class="empty-state">
-          Keine Whitelists vorhanden
+        <div v-if="selectedRoomWhitelists.length === 0 && !showWhitelistForm" class="empty-state">
+          Keine Whitelists für dieses Zimmer
         </div>
 
         <div v-else class="whitelist-grid">
-          <div v-for="wl in whitelists" :key="wl.id" class="whitelist-card">
+          <div v-for="wl in selectedRoomWhitelists" :key="wl.id" class="whitelist-card">
             <div class="whitelist-header">
               <h4>{{ wl.name }}</h4>
               <button @click="deleteWhitelist(wl.id)" class="btn-delete">🗑️</button>
@@ -164,6 +185,10 @@ async function deleteWhitelist(id: number) {
           </div>
         </div>
       </section>
+
+      <div v-else class="info-box">
+        👆 Wähle ein Zimmer aus, um Whitelists zu verwalten
+      </div>
     </div>
   </div>
 </template>
@@ -171,7 +196,7 @@ async function deleteWhitelist(id: number) {
 <style scoped>
 .dashboard {
   width: 100%;
-  max-width: 1200px;
+  max-width: 1400px;
 }
 
 .container {
@@ -209,6 +234,7 @@ h2 {
 
 .room-grid {
   display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 1.5rem;
 }
 
@@ -217,11 +243,18 @@ h2 {
   border-radius: 12px;
   padding: 1.5rem;
   transition: all 0.3s;
+  cursor: pointer;
 }
 
 .room-card:hover {
   border-color: #667eea;
   box-shadow: 0 4px 20px rgba(102, 126, 234, 0.2);
+}
+
+.room-card.selected {
+  border-color: #667eea;
+  background: #f8f9ff;
+  box-shadow: 0 4px 20px rgba(102, 126, 234, 0.3);
 }
 
 .room-header {
@@ -234,12 +267,16 @@ h2 {
 .room-header h3 {
   margin: 0;
   color: #333;
+  font-size: 1.2rem;
 }
 
 .subnet {
   color: #666;
-  font-size: 0.875rem;
-  font-family: monospace;
+  font-size: 0.75rem;
+  background: #f0f0f0;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-weight: 600;
 }
 
 .room-status {
@@ -266,10 +303,10 @@ h2 {
 
 .btn-toggle {
   width: 100%;
-  padding: 1rem;
+  padding: 0.875rem;
   border: none;
   border-radius: 8px;
-  font-size: 1rem;
+  font-size: 0.95rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s;
@@ -298,6 +335,12 @@ h2 {
   border-radius: 8px;
   cursor: pointer;
   font-weight: 600;
+  transition: all 0.3s;
+}
+
+.btn-add:hover {
+  background: #5568d3;
+  transform: translateY(-2px);
 }
 
 .whitelist-form {
@@ -329,12 +372,27 @@ h2 {
   border-radius: 8px;
   cursor: pointer;
   font-weight: 600;
+  transition: all 0.3s;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
 }
 
 .empty-state {
   text-align: center;
   color: #999;
   padding: 2rem;
+}
+
+.info-box {
+  background: white;
+  border-radius: 20px;
+  padding: 3rem;
+  text-align: center;
+  color: #666;
+  font-size: 1.1rem;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
 }
 
 .whitelist-grid {
@@ -347,6 +405,12 @@ h2 {
   border: 2px solid #e0e0e0;
   border-radius: 8px;
   padding: 1rem;
+  transition: all 0.3s;
+}
+
+.whitelist-card:hover {
+  border-color: #667eea;
+  box-shadow: 0 2px 10px rgba(102, 126, 234, 0.2);
 }
 
 .whitelist-header {
@@ -385,6 +449,7 @@ h2 {
   color: #666;
   font-size: 0.875rem;
   font-family: monospace;
+  word-break: break-all;
 }
 
 .loading {

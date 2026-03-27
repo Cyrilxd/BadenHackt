@@ -39,8 +39,9 @@ async function handleSubmit() {
             id="username"
             v-model="username"
             type="text"
-            placeholder="vlan18"
+            placeholder="lehrer"
             required
+            autofocus
           />
         </div>
 
@@ -63,8 +64,9 @@ async function handleSubmit() {
       </form>
 
       <div class="info-box">
-        <p><strong>Test-Logins:</strong></p>
-        <p>vlan18, vlan19, vlan20, vlan21, vlan22, vlan118, vlan119</p>
+        <p><strong>🏫 Alle Lehrer können alle Zimmer steuern</strong></p>
+        <p><strong>Test-Login:</strong></p>
+        <p>Benutzername: <code>lehrer</code> oder <code>mueller</code> oder <code>schmidt</code></p>
         <p>Passwort: <code>admin123</code></p>
       </div>
     </div>
@@ -167,5 +169,9 @@ input:focus {
   padding: 0.2rem 0.4rem;
   border-radius: 4px;
   font-family: monospace;
+}
+
+.info-box p {
+  margin: 0.5rem 0;
 }
 </style>
