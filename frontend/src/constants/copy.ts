@@ -4,8 +4,8 @@
  */
 export const copy = {
   app: {
-    brandTitle: "Internet Steuerung",
-    brandSubtitle: "Schulzimmer VLAN Verwaltung",
+    brandTitle: "OnOffLine",
+    brandSubtitle: "Schulzimmer im Griff",
     logout: "Abmelden",
   },
   login: {

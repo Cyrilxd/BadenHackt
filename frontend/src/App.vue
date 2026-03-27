@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import AppTopBar from './components/layout/AppTopBar.vue'
+import AppFooter from './components/layout/AppFooter.vue'
 import Login from './components/Login.vue'
 import Dashboard from './components/Dashboard.vue'
 
@@ -47,6 +48,8 @@ function handleLogout() {
       <Login v-if="!isAuthenticated" @login="handleLogin" />
       <Dashboard v-else />
     </main>
+
+    <AppFooter v-if="isAuthenticated" />
   </div>
 </template>
 
