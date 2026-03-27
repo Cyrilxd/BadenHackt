@@ -1,7 +1,8 @@
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, Request, Response
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 from sqlalchemy.orm import Session
 import json
 import logging
@@ -26,13 +27,22 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Internet EIN/AUS API", version="2.0.0", lifespan=lifespan)
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:8080", "http://localhost:5173"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Custom CORS handler as middleware
+@app.middleware("http")
+async def add_cors_headers(request: Request, call_next):
+    # Handle preflight
+    if request.method == "OPTIONS":
+        response = Response(status_code=200)
+    else:
+        response = await call_next(request)
+    
+    # Add CORS headers to ALL responses
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "*"
+    response.headers["Access-Control-Allow-Headers"] = "*"
+    response.headers["Access-Control-Max-Age"] = "3600"
+    
+    return response
 
 
 @app.post("/api/login", response_model=Token)
@@ -182,3 +192,4 @@ async def delete_whitelist(
 @app.get("/api/health")
 async def health_check():
     return {"status": "ok", "service": "internet-control-api", "version": "2.0.0"}
+
