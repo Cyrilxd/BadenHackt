@@ -67,6 +67,7 @@ export const copy = {
     toggleOff: "Internet gesperrt",
     toggleAllOn: "Internet in allen Zimmern aktiviert",
     toggleAllOff: "Internet in allen Zimmern gesperrt",
+    scheduleSaved: "Zeitplan gespeichert",
     whitelistCreated: "Whitelist erstellt",
     whitelistUpdated: "Whitelist aktualisiert",
     whitelistDeleted: "Whitelist gelöscht",
@@ -120,5 +121,27 @@ export const copy = {
     unlock: "Freigeben",
     manageWhitelist: "Whitelist verwalten",
     whitelistDirect: "Whitelist direkt erfassen",
+    schedule: "Zeitplan",
+    overrideOn: "Manuelle Freigabe aktiv",
+    overrideOff: "Manuelle Sperre aktiv",
+    scheduleWindow: (open: string | null, lock: string | null) =>
+      `Zeitplan: ${open ?? "--:--"} bis ${lock ?? "--:--"} offen`,
+  },
+  schedule: {
+    eyebrow: "Zeitsteuerung",
+    close: "Schliessen",
+    enabled: "Täglichen Zeitplan für dieses Zimmer aktivieren",
+    openTime: "Offen ab",
+    lockTime: "Sperren ab",
+    clearOverride:
+      "Manuelle Übersteuerung beenden und wieder dem Zeitplan folgen",
+    save: "Zeitplan speichern",
+    saveError: "Zeitplan konnte nicht gespeichert werden",
+    noRoomSelected: "Kein Zimmer ausgewählt",
+    timeMissing: "Bitte Öffnungs- und Sperrzeit setzen",
+    timeSame: "Öffnungs- und Sperrzeit dürfen nicht identisch sein",
+    summaryDisabled: "Für dieses Zimmer ist aktuell kein Zeitplan aktiv.",
+    summaryTemplate: (open: string, lock: string) =>
+      `Täglich offen von ${open} bis ${lock}. Ausserhalb dieses Fensters ist das Zimmer gesperrt.`,
   },
 } as const;

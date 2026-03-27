@@ -18,6 +18,13 @@ class RoomResponse(BaseModel):
     subnet: str
     vlan_id: int
     internet_enabled: bool
+    schedule_enabled: bool
+    schedule_open_time: Optional[str]
+    schedule_lock_time: Optional[str]
+    manual_override_active: bool
+    manual_override_enabled: Optional[bool]
+    control_mode: str
+    schedule_target_enabled: Optional[bool]
 
     class Config:
         from_attributes = True
@@ -27,6 +34,40 @@ class ToggleResponse(BaseModel):
     success: bool
     internet_enabled: bool
     room: str
+    manual_override_active: bool
+    control_mode: str
+
+
+class RoomScheduleUpdate(BaseModel):
+    schedule_enabled: bool
+    schedule_open_time: Optional[str] = None
+    schedule_lock_time: Optional[str] = None
+    clear_override: bool = False
+
+    @field_validator("schedule_open_time", "schedule_lock_time")
+    @classmethod
+    def validate_schedule_time(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+
+        parts = value.split(":")
+        if len(parts) != 2 or not all(part.isdigit() for part in parts):
+            raise ValueError("Zeit muss im Format HH:MM angegeben werden")
+
+        hour = int(parts[0])
+        minute = int(parts[1])
+        if hour < 0 or hour > 23 or minute < 0 or minute > 59:
+            raise ValueError("Ungültige Uhrzeit")
+
+        return f"{hour:02d}:{minute:02d}"
+
+    @field_validator("schedule_lock_time")
+    @classmethod
+    def validate_different_times(cls, value: Optional[str], info) -> Optional[str]:
+        open_time = info.data.get("schedule_open_time")
+        if open_time and value and open_time == value:
+            raise ValueError("Öffnungs- und Sperrzeit dürfen nicht identisch sein")
+        return value
 
 
 class WhitelistCreate(BaseModel):

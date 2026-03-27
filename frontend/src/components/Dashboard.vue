@@ -4,6 +4,7 @@ import { roomsApi, whitelistsApi, type Room, type Whitelist } from "../api";
 import { copy } from "../constants/copy";
 import DashboardPageTitle from "./dashboard/DashboardPageTitle.vue";
 import RoomCard from "./dashboard/RoomCard.vue";
+import RoomScheduleModal from "./dashboard/RoomScheduleModal.vue";
 import WhitelistModal from "./dashboard/WhitelistModal.vue";
 import AuditLog from "./dashboard/AuditLog.vue";
 import UiButton from "./ui/UiButton.vue";
@@ -18,8 +19,11 @@ const fetching = ref(false);
 const loadingRoomId = ref<number | null>(null);
 const bulkLoading = ref(false);
 const loadingModal = ref(false);
+const scheduleLoading = ref(false);
 const error = ref("");
+const scheduleError = ref("");
 const modalVisible = ref(false);
+const scheduleModalVisible = ref(false);
 
 // Toast
 const toast = ref<{ message: string; type: "success" | "error" } | null>(null);
@@ -54,6 +58,10 @@ function handleConfirmCancel() {
 }
 
 const auditVisible = ref(false);
+const scheduleEnabled = ref(false);
+const scheduleOpenTime = ref("07:30");
+const scheduleLockTime = ref("17:00");
+const clearScheduleOverride = ref(false);
 
 const showWhitelistForm = ref(false);
 const newWhitelistName = ref("");
@@ -138,8 +146,11 @@ function requestToggle(room: Room) {
 }
 
 async function setRoomInternet(room: Room, enable: boolean) {
-    await roomsApi.toggleInternet(room.id, enable);
-    room.internet_enabled = enable;
+    const response = await roomsApi.toggleInternet(room.id, enable);
+    room.internet_enabled = response.internet_enabled;
+    room.manual_override_active = response.manual_override_active;
+    room.manual_override_enabled = response.internet_enabled;
+    room.control_mode = response.control_mode;
 }
 
 async function toggleInternet(room: Room) {
@@ -203,6 +214,9 @@ async function toggleAllRooms(enable: boolean) {
 
         for (const room of roomsToUpdate) {
             room.internet_enabled = enable;
+            room.manual_override_active = true;
+            room.manual_override_enabled = enable;
+            room.control_mode = "manual_override";
         }
 
         showToast(enable ? copy.toast.toggleAllOn : copy.toast.toggleAllOff);
@@ -215,6 +229,22 @@ async function toggleAllRooms(enable: boolean) {
 
 function selectRoom(roomId: number) {
     selectedRoomId.value = roomId;
+}
+
+function openScheduleModal(room: Room) {
+    selectRoom(room.id);
+    scheduleEnabled.value = room.schedule_enabled;
+    scheduleOpenTime.value = room.schedule_open_time ?? "07:30";
+    scheduleLockTime.value = room.schedule_lock_time ?? "17:00";
+    clearScheduleOverride.value = false;
+    scheduleError.value = "";
+    scheduleModalVisible.value = true;
+}
+
+function closeScheduleModal() {
+    scheduleModalVisible.value = false;
+    scheduleError.value = "";
+    clearScheduleOverride.value = false;
 }
 
 function openWhitelistModal(roomId: number, openCreateForm = false) {
@@ -415,6 +445,63 @@ async function doDeleteWhitelist(id: number) {
         loadingModal.value = false;
     }
 }
+
+async function saveRoomSchedule() {
+    if (!selectedRoom.value) {
+        scheduleError.value = copy.schedule.noRoomSelected;
+        return;
+    }
+
+    if (
+        scheduleEnabled.value &&
+        (!scheduleOpenTime.value || !scheduleLockTime.value)
+    ) {
+        scheduleError.value = copy.schedule.timeMissing;
+        return;
+    }
+
+    if (
+        scheduleEnabled.value &&
+        scheduleOpenTime.value === scheduleLockTime.value
+    ) {
+        scheduleError.value = copy.schedule.timeSame;
+        return;
+    }
+
+    scheduleLoading.value = true;
+    scheduleError.value = "";
+
+    try {
+        const updatedRoom = await roomsApi.updateSchedule(
+            selectedRoom.value.id,
+            {
+                schedule_enabled: scheduleEnabled.value,
+                schedule_open_time: scheduleEnabled.value
+                    ? scheduleOpenTime.value
+                    : null,
+                schedule_lock_time: scheduleEnabled.value
+                    ? scheduleLockTime.value
+                    : null,
+                clear_override: clearScheduleOverride.value,
+            },
+        );
+
+        const roomIndex = rooms.value.findIndex(
+            (room) => room.id === updatedRoom.id,
+        );
+        if (roomIndex >= 0) {
+            rooms.value[roomIndex] = updatedRoom;
+        }
+
+        closeScheduleModal();
+        showToast(copy.toast.scheduleSaved);
+    } catch (err: any) {
+        scheduleError.value =
+            err?.response?.data?.detail || copy.schedule.saveError;
+    } finally {
+        scheduleLoading.value = false;
+    }
+}
 </script>
 
 <template>
@@ -462,8 +549,22 @@ async function doDeleteWhitelist(id: number) {
                 @card-click="handleRoomCardClick"
                 @toggle="requestToggle"
                 @manage="(r) => openWhitelistModal(r.id, !r.internet_enabled)"
+                @schedule="openScheduleModal"
             />
         </section>
+
+        <RoomScheduleModal
+            :open="scheduleModalVisible"
+            :room="selectedRoom"
+            :loading="scheduleLoading"
+            :error-message="scheduleError"
+            v-model:schedule-enabled="scheduleEnabled"
+            v-model:schedule-open-time="scheduleOpenTime"
+            v-model:schedule-lock-time="scheduleLockTime"
+            v-model:clear-override="clearScheduleOverride"
+            @close="closeScheduleModal"
+            @save="saveRoomSchedule"
+        />
 
         <WhitelistModal
             :open="modalVisible"

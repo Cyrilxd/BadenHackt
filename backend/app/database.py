@@ -61,6 +61,11 @@ class Room(Base):
     subnet = Column(String, nullable=False)
     vlan_id = Column(Integer, unique=True, nullable=False)
     internet_enabled = Column(Boolean, default=True, nullable=False)
+    schedule_enabled = Column(Boolean, default=False, nullable=False)
+    schedule_open_time = Column(String(5), nullable=True)
+    schedule_lock_time = Column(String(5), nullable=True)
+    manual_override_active = Column(Boolean, default=False, nullable=False)
+    manual_override_enabled = Column(Boolean, nullable=True)
 
     whitelist_assignments = relationship(
         "RoomWhitelistAssignment",
@@ -338,7 +343,47 @@ def _migrate_sqlite_whitelist_table() -> None:
         )
 
 
+def _migrate_sqlite_room_schedule_columns() -> None:
+    with engine.begin() as connection:
+        table_exists = connection.execute(
+            text("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'rooms'")
+        ).scalar_one_or_none()
+        if not table_exists:
+            return
+
+        columns = {
+            row["name"]
+            for row in connection.execute(text("PRAGMA table_info(rooms)")).mappings()
+        }
+        statements: list[str] = []
+
+        if "schedule_enabled" not in columns:
+            statements.append(
+                "ALTER TABLE rooms ADD COLUMN schedule_enabled BOOLEAN NOT NULL DEFAULT 0"
+            )
+        if "schedule_open_time" not in columns:
+            statements.append(
+                "ALTER TABLE rooms ADD COLUMN schedule_open_time TEXT NULL"
+            )
+        if "schedule_lock_time" not in columns:
+            statements.append(
+                "ALTER TABLE rooms ADD COLUMN schedule_lock_time TEXT NULL"
+            )
+        if "manual_override_active" not in columns:
+            statements.append(
+                "ALTER TABLE rooms ADD COLUMN manual_override_active BOOLEAN NOT NULL DEFAULT 0"
+            )
+        if "manual_override_enabled" not in columns:
+            statements.append(
+                "ALTER TABLE rooms ADD COLUMN manual_override_enabled BOOLEAN NULL"
+            )
+
+        for statement in statements:
+            connection.execute(text(statement))
+
+
 def init_db():
     if IS_SQLITE:
         _migrate_sqlite_whitelist_table()
+        _migrate_sqlite_room_schedule_columns()
     Base.metadata.create_all(bind=engine)

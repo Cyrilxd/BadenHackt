@@ -13,7 +13,12 @@ CREATE TABLE IF NOT EXISTS rooms (
     name TEXT NOT NULL,
     subnet TEXT NOT NULL,
     vlan_id INTEGER UNIQUE NOT NULL,
-    internet_enabled BOOLEAN NOT NULL DEFAULT 1
+    internet_enabled BOOLEAN NOT NULL DEFAULT 1,
+    schedule_enabled BOOLEAN NOT NULL DEFAULT 0,
+    schedule_open_time TEXT,
+    schedule_lock_time TEXT,
+    manual_override_active BOOLEAN NOT NULL DEFAULT 0,
+    manual_override_enabled BOOLEAN
 );
 
 CREATE TABLE IF NOT EXISTS whitelist_templates (

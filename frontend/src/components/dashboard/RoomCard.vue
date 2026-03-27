@@ -12,6 +12,7 @@ const emit = defineEmits<{
     cardClick: [room: Room];
     toggle: [room: Room];
     manage: [room: Room];
+    schedule: [room: Room];
 }>();
 </script>
 
@@ -41,6 +42,23 @@ const emit = defineEmits<{
             }}
         </p>
 
+        <p v-if="room.schedule_enabled" class="meta-pill meta-schedule">
+            {{
+                copy.room.scheduleWindow(
+                    room.schedule_open_time,
+                    room.schedule_lock_time,
+                )
+            }}
+        </p>
+
+        <p v-if="room.manual_override_active" class="meta-pill meta-override">
+            {{
+                room.manual_override_enabled
+                    ? copy.room.overrideOn
+                    : copy.room.overrideOff
+            }}
+        </p>
+
         <div class="room-actions">
             <UiButton
                 type="button"
@@ -64,6 +82,16 @@ const emit = defineEmits<{
                         ? copy.room.manageWhitelist
                         : copy.room.whitelistDirect
                 }}
+            </UiButton>
+
+            <UiButton
+                type="button"
+                slim
+                variant="roomOutline"
+                :disabled="loading"
+                @click.stop="emit('schedule', room)"
+            >
+                {{ copy.room.schedule }}
             </UiButton>
         </div>
     </article>
@@ -144,8 +172,29 @@ const emit = defineEmits<{
     color: var(--color-status-off-fg);
 }
 
+.meta-pill {
+    display: inline-block;
+    align-self: flex-start;
+    margin-top: 0.45rem;
+    border-radius: var(--radius-pill);
+    padding: 0.28rem 0.6rem;
+    font-size: 0.76rem;
+    font-weight: 700;
+}
+
+.meta-schedule {
+    background: color-mix(in srgb, var(--color-primary) 12%, white);
+    color: var(--color-primary);
+}
+
+.meta-override {
+    background: color-mix(in srgb, var(--color-status-off-fg) 12%, white);
+    color: var(--color-status-off-fg);
+}
+
 .room-actions {
     display: flex;
+    flex-wrap: wrap;
     gap: 0.5rem;
     margin-top: auto;
     padding-top: 0.75rem;

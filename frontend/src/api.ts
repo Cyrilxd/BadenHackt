@@ -42,6 +42,20 @@ export interface Room {
   subnet: string;
   vlan_id: number;
   internet_enabled: boolean;
+  schedule_enabled: boolean;
+  schedule_open_time: string | null;
+  schedule_lock_time: string | null;
+  manual_override_active: boolean;
+  manual_override_enabled: boolean | null;
+  control_mode: "manual" | "schedule" | "manual_override";
+  schedule_target_enabled: boolean | null;
+}
+
+export interface RoomScheduleUpdate {
+  schedule_enabled: boolean;
+  schedule_open_time: string | null;
+  schedule_lock_time: string | null;
+  clear_override?: boolean;
 }
 
 export interface Whitelist {
@@ -75,6 +89,17 @@ export const roomsApi = {
     const response = await api.post(`/api/rooms/${roomId}/toggle`, null, {
       params: { enable },
     });
+    return response.data;
+  },
+
+  updateSchedule: async (
+    roomId: number,
+    payload: RoomScheduleUpdate,
+  ): Promise<Room> => {
+    const response = await api.put<Room>(
+      `/api/rooms/${roomId}/schedule`,
+      payload,
+    );
     return response.data;
   },
 };

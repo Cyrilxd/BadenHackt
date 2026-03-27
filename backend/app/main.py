@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
@@ -6,10 +7,23 @@ from fastapi import FastAPI, Request, Response
 from . import firewall
 from .database import SessionLocal, init_db
 from .init_data import init_test_data
+from .room_schedule import sync_scheduled_rooms
 from .routers import audit_routes, auth_routes, room_routes, whitelist_routes
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+
+async def _room_schedule_loop() -> None:
+    while True:
+        await asyncio.sleep(60)
+        with SessionLocal() as db:
+            try:
+                sync_scheduled_rooms(db)
+            except firewall.FirewallSyncError as exc:
+                logger.warning("Scheduled firewall sync failed: %s", exc)
+            except Exception:
+                logger.exception("Timed room scheduler failed")
 
 
 @asynccontextmanager
@@ -20,12 +34,21 @@ async def lifespan(app: FastAPI):
 
     with SessionLocal() as db:
         try:
+            sync_scheduled_rooms(db)
             firewall.FirewallManager.sync_all_rooms(db)
             logger.info("Initial firewall policy sync completed")
         except firewall.FirewallSyncError as exc:
             logger.warning("Initial firewall policy sync failed: %s", exc)
 
+    scheduler_task = asyncio.create_task(_room_schedule_loop())
+
     yield
+
+    scheduler_task.cancel()
+    try:
+        await scheduler_task
+    except asyncio.CancelledError:
+        pass
 
 
 app = FastAPI(title="Internet EIN/AUS API", version="2.0.0", lifespan=lifespan)
