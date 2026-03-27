@@ -1,8 +1,12 @@
+import json
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request, Response
+from fastapi import Depends, FastAPI, HTTPException, Request, Response
+from sqlalchemy.orm import Session
 
+from . import auth
+from .database import Room, User, WhitelistTemplate, get_db
 from .init_data import init_test_data
 from .routers import auth_routes, room_routes, whitelist_routes
 from .schemas import (
