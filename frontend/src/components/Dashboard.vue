@@ -546,6 +546,7 @@ async function saveRoomSchedule() {
                 :key="room.id"
                 :room="room"
                 :loading="bulkLoading || loadingRoomId === room.id"
+                :active-whitelists="whitelists.filter(w => w.room_id === room.id && w.is_active)"
                 @card-click="handleRoomCardClick"
                 @toggle="requestToggle"
                 @manage="(r) => openWhitelistModal(r.id, !r.internet_enabled)"

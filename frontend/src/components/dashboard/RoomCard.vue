@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import type { Room } from "../../api";
+import type { Room, Whitelist } from "../../api";
 import { copy } from "../../constants/copy";
 import UiButton from "../ui/UiButton.vue";
 
 defineProps<{
     room: Room;
     loading: boolean;
+    activeWhitelists?: Whitelist[];
 }>();
 
 const emit = defineEmits<{
@@ -42,6 +43,17 @@ const emit = defineEmits<{
                 room.internet_enabled ? copy.room.statusOn : copy.room.statusOff
             }}
         </p>
+
+        <div v-if="activeWhitelists && activeWhitelists.length > 0" class="whitelist-tags">
+            <span
+                v-for="wl in activeWhitelists.slice(0, 3)"
+                :key="wl.id"
+                class="whitelist-tag"
+            >{{ wl.name }}</span>
+            <span v-if="activeWhitelists.length > 3" class="whitelist-tag whitelist-tag-more">
+                +{{ activeWhitelists.length - 3 }}
+            </span>
+        </div>
 
         <p v-if="room.schedule_enabled" class="meta-pill meta-schedule">
             {{
@@ -220,6 +232,40 @@ const emit = defineEmits<{
 .meta-override {
     background: color-mix(in srgb, var(--color-status-off-fg) 12%, white);
     color: var(--color-status-off-fg);
+}
+
+.whitelist-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    margin-top: 0.45rem;
+}
+
+.whitelist-tag {
+    display: inline-block;
+    border: 1px solid var(--color-status-on-border);
+    border-radius: var(--radius-pill);
+    background: var(--color-status-on-bg);
+    padding: 0.15rem 0.5rem;
+    color: var(--color-status-on-fg);
+    font-size: 0.7rem;
+    font-weight: 600;
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.room-card-disabled .whitelist-tag {
+    border-color: var(--color-border);
+    background: var(--color-surface-muted);
+    color: var(--color-muted);
+}
+
+.whitelist-tag-more {
+    border-color: var(--color-border);
+    background: var(--color-surface-muted);
+    color: var(--color-muted);
 }
 
 .room-actions {
