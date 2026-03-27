@@ -126,7 +126,7 @@ export const copy = {
     overrideOn: "Manuelle Freigabe aktiv",
     overrideOff: "Manuelle Sperre aktiv",
     scheduleWindow: (open: string | null, lock: string | null) =>
-      `Gesperrt: ${open ?? "--:--"} – ${lock ?? "--:--"}`,
+      `Gesperrt: ${lock ?? "--:--"} – ${open ?? "--:--"}`,
   },
   schedule: {
     eyebrow: "Zeitsteuerung",
@@ -143,6 +143,6 @@ export const copy = {
     timeSame: "Öffnungs- und Sperrzeit dürfen nicht identisch sein",
     summaryDisabled: "Für dieses Zimmer ist aktuell kein Zeitplan aktiv.",
     summaryTemplate: (open: string, lock: string) =>
-      `Täglich gesperrt von ${open} bis ${lock}. Ausserhalb dieses Fensters ist das Internet freigegeben.`,
+      `Täglich gesperrt von ${lock} bis ${open}. Ausserhalb dieses Fensters ist das Internet freigegeben.`,
   },
 } as const;
