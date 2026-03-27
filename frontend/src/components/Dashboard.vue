@@ -450,7 +450,6 @@ async function doDeleteWhitelist(id: number) {
                 v-for="room in rooms"
                 :key="room.id"
                 :room="room"
-                :selected="selectedRoomId === room.id"
                 :loading="bulkLoading || loadingRoomId === room.id"
                 @card-click="handleRoomCardClick"
                 @toggle="requestToggle"
