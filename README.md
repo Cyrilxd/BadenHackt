@@ -2,7 +2,7 @@
 
 Web-basiertes Kontrollpanel für Lehrpersonen zur Steuerung des Internetzugangs in 7 Schulzimmern. Pro Raum kann der Internetzugang ein- oder ausgeschaltet sowie eine Whitelist gepflegt werden.
 
-Die technische Detailarchitektur ist in [`ARCHITECTURE.md`](./ARCHITECTURE_revised.md) dokumentiert.
+Die technische Detailarchitektur ist in [`ARCHITECTURE.md`](./ARCHITECTURE.md) dokumentiert.
 
 ## Ziel des Projekts
 
