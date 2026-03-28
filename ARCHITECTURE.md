@@ -1,318 +1,141 @@
-# Internet EIN/AUS - Container-Architektur
+# Architektur — Internet EIN/AUS
 
-## System-Übersicht
+## Übersicht
+
+Web-App zur Steuerung des Internetzugangs in 7 Schulzimmern (VLANs) am zB. Zentrum Bildung Baden.
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                         INTERNET                             │
-└──────────────────────┬──────────────────────────────────────┘
-                       │
-┌──────────────────────▼──────────────────────────────────────┐
-│                    Firewall (extern)                         │
-└──────────────────────┬──────────────────────────────────────┘
-                       │
-┌──────────────────────▼──────────────────────────────────────┐
-│              PERIMETER FIREWALL (Host)                       │
-│  ┌────────────────────────────────────────────────────────┐ │
-│  │         Docker Compose Stack                           │ │
-│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐ │ │
-│  │  │   Frontend   │  │   Backend    │  │    Squid     │ │ │
-│  │  │  (Nginx +    │  │  (FastAPI)   │  │ (URL-Filter) │ │ │
-│  │  │  Vue.js/TS)  │  │              │  │              │ │ │
-│  │  │  Port: 8080  │  │  Port: 8000  │  │  Port: 3128  │ │ │
-│  │  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘ │ │
-│  │         │                 │                 │         │ │
-│  │         └────────┬────────┴────────┬────────┘         │ │
-│  │                  │                 │                  │ │
-│  │         ┌────────▼─────────────────▼────────┐         │ │
-│  │         │    SQLite DB (Volume)             │         │ │
-│  │         │  - users                          │         │ │
-│  │         │  - rooms                          │         │ │
-│  │         │  - whitelist_templates            │         │ │
-│  │         └───────────────────────────────────┘         │ │
-│  └────────────────────────────────────────────────────────┘ │
-│                       │                                      │
-│  ┌────────────────────▼──────────────────────────────────┐  │
-│  │  nftables (Host Network)                              │  │
-│  │  - Rules per VLAN (Internet EIN/AUS)                  │  │
-│  │  - Backend steuert via Docker Host-Access             │  │
-│  └───────────────────────────────────────────────────────┘  │
-└──────────────────────┬──────────────────────────────────────┘
-                       │
-        ┌──────────────┼──────────────┬─────────────────┐
-        │              │              │                 │
-┌───────▼─────┐ ┌──────▼─────┐ ┌─────▼──────┐   ... (7 VLANs)
-│  VLAN 18    │ │  VLAN 19   │ │  VLAN 20   │
-│10.3.18.0/24 │ │10.3.19.0/24│ │10.3.20.0/24│
-│ (Zimmer 1)  │ │ (Zimmer 2) │ │ (Zimmer 3) │
-└─────────────┘ └────────────┘ └────────────┘
+┌──────────────────────────────────────────────────┐
+│  Frontend (Vue 3 + TypeScript)                   │
+│  Nginx auf Port 80                               │
+└──────────────────┬───────────────────────────────┘
+                   │ REST / JSON
+┌──────────────────▼───────────────────────────────┐
+│  Backend (FastAPI + SQLAlchemy)                   │
+│  Port 8000                                       │
+│  Auth: JWT (local oder LDAP)                     │
+│  DB: SQLite                                      │
+└──────┬───────────────────────────┬───────────────┘
+       │                           │
+       │ LDAP bind/search          │ HTTP PUT /rooms/policies
+       │                           │
+┌──────▼──────────┐   ┌───────────▼───────────────┐
+│  OpenLDAP       │   │  Firewall Agent (FastAPI)  │
+│  Port 389       │   │  Port 8080                 │
+│  Testverzeichnis│   │  Driver: mock | shorewall  │
+└─────────────────┘   └───────────┬───────────────┘
+                                  │
+                      ┌───────────▼───────────────┐
+                      │  Shorewall + ipset         │
+                      │  (Produktion)              │
+                      │  7 VLANs: 18–22, 118–119   │
+                      └───────────────────────────┘
 ```
 
----
+## Komponenten
 
-## Container-Details
+### Frontend
 
-### 1. Frontend (Nginx + Vue.js/TypeScript)
+- **Stack:** Vue 3 + TypeScript, Vite als Build-Tool
+- **Styling:** Custom CSS mit Design-Tokens (`tokens.css`), kein Framework
+- **HTTP-Client:** Axios mit JWT-Interceptor
+- **UI-Komponenten:** `UiButton`, `UiModal`, `UiConfirm`, `UiToast`
+- **Deployment:** Multi-Stage Docker Build (Node → Nginx)
 
-**Base:** `node:20-alpine` (Build) + `nginx:alpine` (Serve)
+### Backend
 
-**Stack:**
-- Vue 3 + TypeScript
-- Vite (Build-Tool)
-- Axios (HTTP-Client)
-- TailwindCSS (Styling)
+- **Framework:** FastAPI mit SQLAlchemy ORM
+- **Datenbank:** SQLite (einzelne Datei, Volume-Mount)
+- **Auth:** JWT-Token (8h Gültigkeit), Login via Local-DB oder LDAP
+- **Passwort-Hashing:** SHA-256 (lokale Accounts)
+- **API-Prefix:** `/api/`
+- **Scheduler:** Async-Loop (60s Intervall) für zeitgesteuerte Raumsperren
 
-**Build-Prozess:**
-```dockerfile
-FROM node:20-alpine AS builder
-WORKDIR /app
-COPY package*.json ./
-RUN npm install
-COPY . .
-RUN npm run build
+### Firewall Agent
 
-FROM nginx:alpine
-COPY --from=builder /app/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+- **Eigenständiger FastAPI-Service** auf dem Firewall-Host
+- **Zwei Driver:**
+  - `mock` — schreibt gerenderte Regeln als Dateien (Entwicklung)
+  - `shorewall` — erzeugt Shorewall-Include-Regeln + ipset-Einträge (Produktion)
+- **Kommunikation:** Backend → Agent via `PUT /rooms/policies` (Token-Auth)
+- **Whitelist-Auflösung:** Hostnamen → IPv4 via DNS, dann ipset
+
+### OpenLDAP
+
+- Testverzeichnis mit vorkonfigurierten Lehrern
+- Nur in Compose aktiv; Produktion nutzt das bestehende Schulverzeichnis
+
+## Datenmodell
+
+```
+users
+├── id, username, password_hash
+└── vlan_id, room_name
+
+rooms
+├── id, name, subnet, vlan_id
+├── internet_enabled
+├── schedule_enabled, schedule_open_time, schedule_lock_time
+└── manual_override_active, manual_override_enabled
+
+whitelist_templates
+├── id, name, urls (JSON)
+└── ↔ room_whitelist_assignments (room_id, whitelist_id, is_active)
+
+audit_logs
+├── id, timestamp, username, action
+└── target, detail (JSON), success
 ```
 
-**Routes:**
-- `/` - Login
-- `/dashboard` - Zimmer-Steuerung (Internet EIN/AUS)
-- `/whitelist` - Whitelist-Manager
-
----
-
-### 2. Backend (FastAPI + Python)
-
-**Base:** `python:3.11-slim`
-
-**Dependencies:**
-- FastAPI (Web-Framework)
-- Uvicorn (ASGI-Server)
-- SQLAlchemy (ORM)
-- python-jose (JWT)
-- bcrypt (Password-Hashing)
-
-**API-Endpoints:**
-```
-POST /api/login               → JWT-Token
-GET  /api/rooms               → Liste (nur mein Zimmer)
-POST /api/rooms/{id}/toggle   → Internet EIN/AUS
-GET  /api/whitelists          → Templates
-POST /api/whitelists          → Create/Upload
-PUT  /api/whitelists/{id}     → Update
-```
-
-**nftables-Integration:**
-```python
-import subprocess
-
-def block_vlan(vlan_subnet: str):
-    subprocess.run([
-        "docker", "exec", "host-network",
-        "nft", "add", "rule", "inet", "filter", "forward",
-        "ip", "saddr", vlan_subnet, "drop"
-    ])
-```
-
----
-
-### 3. Squid (URL-Filtering)
-
-**Base:** `sameersbn/squid:latest`
-
-**Config (per VLAN):**
-```squid
-# /etc/squid/squid.conf
-acl vlan18 src 10.3.18.0/24
-acl vlan19 src 10.3.19.0/24
-
-acl whitelist_vlan18 dstdomain .google.com .wikipedia.org
-acl whitelist_vlan19 dstdomain .github.com .stackoverflow.com
-
-http_access allow vlan18 whitelist_vlan18
-http_access deny vlan18
-
-http_access allow vlan19 whitelist_vlan19
-http_access deny vlan19
-```
-
-**Backend updatet Config:**
-- Template rendern (Jinja2)
-- Config schreiben
-- Squid reload: `docker exec squid squid -k reconfigure`
-
----
-
-### 4. SQLite Database (Volume)
-
-**Schema:**
-```sql
-users (
-    id INTEGER PRIMARY KEY,
-    username TEXT UNIQUE,     -- "vlan18", "vlan19", ...
-    password_hash TEXT,
-    vlan_id INTEGER           -- 18, 19, 20, ...
-)
-
-rooms (
-    id INTEGER PRIMARY KEY,
-    name TEXT,                -- "Zimmer 1"
-    subnet TEXT,              -- "10.3.18.0/24"
-    vlan_id INTEGER,          -- 18
-    internet_enabled BOOLEAN DEFAULT TRUE
-)
-
-whitelist_templates (
-    id INTEGER PRIMARY KEY,
-    name TEXT,                -- "Google Suite"
-    urls TEXT,                -- JSON: ["google.com", "gmail.com"]
-    room_id INTEGER REFERENCES rooms(id)
-)
-```
-
----
-
-## Docker Compose
-
-```yaml
-version: '3.8'
-
-services:
-  frontend:
-    build: ./frontend
-    ports:
-      - "8080:80"
-    depends_on:
-      - backend
-
-  backend:
-    build: ./backend
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./data:/app/data          # SQLite DB
-      - /var/run/docker.sock:/var/run/docker.sock  # Host-Access
-    privileged: true               # nftables-Zugriff
-    network_mode: host             # Host-Netzwerk für nftables
-
-  squid:
-    image: sameersbn/squid:latest
-    ports:
-      - "3128:3128"
-    volumes:
-      - ./squid/squid.conf:/etc/squid/squid.conf
-      - squid-cache:/var/spool/squid
-
-volumes:
-  squid-cache:
-```
-
----
-
-## User-Flow
-
-### 1. Login
-```
-Lehrer → https://firewall:8080/
-        → Eingabe: "vlan18" / "password"
-        → Backend checkt DB
-        → JWT-Token (enthält vlan_id)
-        → Redirect zu /dashboard
-```
-
-### 2. Internet sperren
-```
-Dashboard → Button "Internet AUS" klicken
-          → POST /api/rooms/18/toggle {"enabled": false}
-          → Backend:
-              1. nft add rule ... drop (VLAN 18 blockiert)
-              2. DB-Update: internet_enabled = false
-          → Frontend: Status-Update "🔴 Gesperrt"
-```
-
-### 3. Whitelist setzen
-```
-Whitelist-Manager → "Google Suite" Template wählen
-                  → POST /api/whitelists {"urls": ["google.com", "gmail.com"]}
-                  → Backend:
-                      1. Squid-Config rendern
-                      2. docker exec squid squid -k reconfigure
-                  → Frontend: "✅ Whitelist aktiv"
-```
-
----
+Whitelists sind als Templates gespeichert und werden pro Raum einzeln aktiviert/deaktiviert.
 
 ## Deployment
 
-**1. Build:**
-```bash
-cd /data/.openclaw/workspace/hackathon
-docker-compose build
+```yaml
+# docker-compose.yml — 4 Services
+frontend       → Nginx, Port 80
+backend        → FastAPI, Port 8000
+ldap           → OpenLDAP, Port 389
+shorewall-mock → Firewall Agent, Port 8081
 ```
 
-**2. Start:**
-```bash
-docker-compose up -d
+Alle Konfiguration über Umgebungsvariablen. SQLite und Firewall-State als Volume-Mounts.
+
+## API-Endpunkte
+
+| Methode | Pfad | Beschreibung |
+|---------|------|-------------|
+| POST | `/api/login` | Login (form-data) |
+| GET | `/api/rooms` | Alle Räume mit Status |
+| POST | `/api/rooms/{id}/toggle` | Internet ein/aus (setzt manuellen Override) |
+| PUT | `/api/rooms/{id}/schedule` | Zeitplan konfigurieren |
+| GET | `/api/whitelists` | Whitelists abrufen |
+| POST | `/api/whitelists` | Whitelist erstellen |
+| PUT | `/api/whitelists/{id}` | Whitelist bearbeiten |
+| PATCH | `/api/whitelists/{id}/toggle` | Whitelist aktivieren/deaktivieren |
+| DELETE | `/api/whitelists/{id}` | Whitelist löschen |
+| GET | `/api/audit` | Audit-Log |
+| GET | `/api/health` | Health-Check |
+
+## Firewall-Synchronisation
+
+Bei jeder Änderung (Toggle, Whitelist, Zeitplan) synchronisiert das Backend die **komplette Room-Policy** zum Firewall Agent:
+
+```json
+{
+  "rooms": [{
+    "vlan_id": 18,
+    "subnet": "10.3.18.0/24",
+    "internet_enabled": false,
+    "whitelist_entries": ["google.com", "wikipedia.org"]
+  }]
+}
 ```
 
-**3. Init DB:**
-```bash
-docker exec backend python init_db.py
-# Erstellt 7 User: vlan18, vlan19, ..., vlan119
-```
+Der Agent rendert daraus Shorewall-Regeln und ipset-Einträge.
 
-**4. Access:**
-```
-Frontend: http://<server-ip>:8080
-Backend API: http://<server-ip>:8000/docs
-```
+## Zeitsteuerung
 
----
-
-## Sicherheit
-
-**JWT-Token:**
-- Expiry: 8h
-- Signed mit Secret-Key
-
-**Passwords:**
-- bcrypt-hashed (10 rounds)
-
-**nftables-Isolation:**
-- Backend läuft privileged, aber nur nftables-Commands erlaubt
-- Keine Shell-Access von Containern
-
----
-
-## Rollback
-
-**Bei Problemen:**
-```bash
-docker-compose down
-docker-compose up -d
-```
-
-**Alte Shorewall wieder aktivieren:**
-- Container stoppen
-- Alte Rules restaurieren
-
----
-
-## Monitoring
-
-**Container-Logs:**
-```bash
-docker-compose logs -f backend
-docker-compose logs -f squid
-```
-
-**nftables-Status:**
-```bash
-nft list ruleset | grep forward
-```
-
----
-
-**Status:** Architektur definiert, ready to implement! 🦇
+- Pro Raum konfigurierbar: Sperrzeit (Lock) und Freigabezeit (Open)
+- Backend prüft alle 60 Sekunden und bei jedem Room-Request
+- Manueller Override überschreibt den Zeitplan bis zum Zurücksetzen
