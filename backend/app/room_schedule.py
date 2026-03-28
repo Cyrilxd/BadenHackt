@@ -49,14 +49,15 @@ def schedule_target_enabled(room: Room, now: datetime | None = None) -> bool | N
     open_minutes = open_time[0] * 60 + open_time[1]
     lock_minutes = lock_time[0] * 60 + lock_time[1]
 
-    # Innerhalb des Zeitfensters (open_time bis lock_time) ist Internet GESPERRT.
-    # Ausserhalb des Zeitfensters ist Internet freigegeben.
-    if open_minutes < lock_minutes:
-        in_window = open_minutes <= minutes_now < lock_minutes
+    # UI: «Sperrung beginnt» = schedule_lock_time, «Sperrung endet» = schedule_open_time.
+    # Auf dem 24h-Kreis: gesperrt von lock bis open (über Mitternacht, wenn lock > open).
+    if lock_minutes < open_minutes:
+        in_locked_window = lock_minutes <= minutes_now < open_minutes
     else:
-        in_window = minutes_now >= open_minutes or minutes_now < lock_minutes
+        in_locked_window = minutes_now >= lock_minutes or minutes_now < open_minutes
 
-    return not in_window  # gesperrt im Fenster = internet_enabled False
+    # True = Internet laut Zeitplan erlaubt (nicht im Sperrfenster).
+    return not in_locked_window
 
 
 def resolve_room_state(room: Room, now: datetime | None = None) -> RoomScheduleState:

@@ -151,8 +151,8 @@ def test_update_schedule_persists_times(client, auth_headers, room, db):
         f"/api/rooms/{room.id}/schedule",
         json={
             "schedule_enabled": True,
-            "schedule_open_time": "08:00",
-            "schedule_lock_time": "15:30",
+            "schedule_open_time": "15:30",
+            "schedule_lock_time": "08:00",
             "clear_override": False,
         },
         headers=auth_headers,
@@ -161,12 +161,12 @@ def test_update_schedule_persists_times(client, auth_headers, room, db):
     assert resp.status_code == 200
     body = resp.json()
     assert body["schedule_enabled"] is True
-    assert body["schedule_open_time"] == "08:00"
-    assert body["schedule_lock_time"] == "15:30"
+    assert body["schedule_open_time"] == "15:30"
+    assert body["schedule_lock_time"] == "08:00"
     db.refresh(room)
     assert room.schedule_enabled is True
-    assert room.schedule_open_time == "08:00"
-    assert room.schedule_lock_time == "15:30"
+    assert room.schedule_open_time == "15:30"
+    assert room.schedule_lock_time == "08:00"
 
 
 def test_update_schedule_clears_manual_override_when_requested(
@@ -175,8 +175,8 @@ def test_update_schedule_clears_manual_override_when_requested(
     room.manual_override_active = True
     room.manual_override_enabled = False
     room.schedule_enabled = True
-    room.schedule_open_time = "08:00"
-    room.schedule_lock_time = "16:00"
+    room.schedule_lock_time = "08:00"
+    room.schedule_open_time = "16:00"
     room.internet_enabled = False
     db.commit()
 
@@ -188,8 +188,8 @@ def test_update_schedule_clears_manual_override_when_requested(
             f"/api/rooms/{room.id}/schedule",
             json={
                 "schedule_enabled": True,
-                "schedule_open_time": "08:00",
-                "schedule_lock_time": "16:00",
+                "schedule_lock_time": "08:00",
+                "schedule_open_time": "16:00",
                 "clear_override": True,
             },
             headers=auth_headers,
@@ -198,7 +198,7 @@ def test_update_schedule_clears_manual_override_when_requested(
     assert resp.status_code == 200
     body = resp.json()
     assert body["manual_override_active"] is False
-    # 10:00 liegt im Sperrzeitfenster 08:00-16:00 → internet gesperrt
+    # 10:00 liegt im Sperrfenster 08:00–16:00 (Lock bis Open) → internet gesperrt
     assert body["internet_enabled"] is False
     assert body["control_mode"] == "schedule"
     db.refresh(room)
@@ -209,8 +209,8 @@ def test_update_schedule_clears_manual_override_when_requested(
 
 def test_get_rooms_applies_schedule_when_no_override(client, auth_headers, room, db):
     room.schedule_enabled = True
-    room.schedule_open_time = "08:00"
-    room.schedule_lock_time = "16:00"
+    room.schedule_lock_time = "08:00"
+    room.schedule_open_time = "16:00"
     room.internet_enabled = False
     db.commit()
 
@@ -222,7 +222,7 @@ def test_get_rooms_applies_schedule_when_no_override(client, auth_headers, room,
 
     assert resp.status_code == 200
     body = resp.json()[0]
-    # 09:00 liegt im Sperrzeitfenster 08:00-16:00 → internet gesperrt
+    # 09:00 liegt im Sperrfenster 08:00–16:00 → internet gesperrt
     assert body["internet_enabled"] is False
     assert body["control_mode"] == "schedule"
     assert body["schedule_target_enabled"] is False
@@ -232,8 +232,8 @@ def test_get_rooms_applies_schedule_when_no_override(client, auth_headers, room,
 
 def test_get_rooms_keeps_manual_override_over_schedule(client, auth_headers, room, db):
     room.schedule_enabled = True
-    room.schedule_open_time = "08:00"
-    room.schedule_lock_time = "16:00"
+    room.schedule_lock_time = "08:00"
+    room.schedule_open_time = "16:00"
     room.manual_override_active = True
     room.manual_override_enabled = False
     room.internet_enabled = False
@@ -249,7 +249,7 @@ def test_get_rooms_keeps_manual_override_over_schedule(client, auth_headers, roo
     body = resp.json()[0]
     assert body["internet_enabled"] is False
     assert body["control_mode"] == "manual_override"
-    # 09:00 im Sperrzeitfenster 08:00-16:00 → schedule_target_enabled = False (gesperrt)
+    # 09:00 im Sperrfenster 08:00–16:00 → Zeitplan würde sperren
     assert body["schedule_target_enabled"] is False
 
 

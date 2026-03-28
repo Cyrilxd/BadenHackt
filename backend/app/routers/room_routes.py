@@ -21,7 +21,7 @@ def _room_response(room: Room) -> RoomResponse:
         name=room.name,
         subnet=room.subnet,
         vlan_id=room.vlan_id,
-        internet_enabled=room.internet_enabled,
+        internet_enabled=resolved.internet_enabled,
         schedule_enabled=room.schedule_enabled,
         schedule_open_time=room.schedule_open_time,
         schedule_lock_time=room.schedule_lock_time,

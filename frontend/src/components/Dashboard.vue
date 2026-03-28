@@ -149,7 +149,7 @@ async function setRoomInternet(room: Room, enable: boolean) {
     const response = await roomsApi.toggleInternet(room.id, enable);
     room.internet_enabled = response.internet_enabled;
     room.manual_override_active = response.manual_override_active;
-    room.manual_override_enabled = response.internet_enabled;
+    room.manual_override_enabled = enable;
     room.control_mode = response.control_mode;
 }
 
