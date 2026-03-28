@@ -1,4 +1,4 @@
-# Architektur — Internet EIN/AUS
+# Architektur — OnOffLine
 
 ## Übersicht
 
