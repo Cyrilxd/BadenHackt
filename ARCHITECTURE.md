@@ -1,141 +1,248 @@
-# Architektur — OnOffLine
+# Internet EIN/AUS - Architektur
 
-## Übersicht
+Dieses Dokument beschreibt die technische Zielarchitektur, die Komponenten, die Datenflüsse und die Verantwortlichkeiten der einzelnen Bausteine.
 
-Web-App zur Steuerung des Internetzugangs in 7 Schulzimmern (VLANs) am zB. Zentrum Bildung Baden.
+Das README enthält bewusst nur Setup-, Betriebs- und Nutzungsinformationen. Dadurch werden Redundanzen zwischen beiden Dokumenten vermieden.
 
-```
-┌──────────────────────────────────────────────────┐
-│  Frontend (Vue 3 + TypeScript)                   │
-│  Nginx auf Port 80                               │
-└──────────────────┬───────────────────────────────┘
-                   │ REST / JSON
-┌──────────────────▼───────────────────────────────┐
-│  Backend (FastAPI + SQLAlchemy)                   │
-│  Port 8000                                       │
-│  Auth: JWT (local oder LDAP)                     │
-│  DB: SQLite                                      │
-└──────┬───────────────────────────┬───────────────┘
-       │                           │
-       │ LDAP bind/search          │ HTTP PUT /rooms/policies
-       │                           │
-┌──────▼──────────┐   ┌───────────▼───────────────┐
-│  OpenLDAP       │   │  Firewall Agent (FastAPI)  │
-│  Port 389       │   │  Port 8080                 │
-│  Testverzeichnis│   │  Driver: mock | shorewall  │
-└─────────────────┘   └───────────┬───────────────┘
-                                  │
-                      ┌───────────▼───────────────┐
-                      │  Shorewall + ipset         │
-                      │  (Produktion)              │
-                      │  7 VLANs: 18–22, 118–119   │
-                      └───────────────────────────┘
+## Architekturprinzipien
+
+- Klare Trennung zwischen UI, Business-Logik, Persistenz und Firewall-Anbindung
+- Zentrale Steuerung pro Raum statt manueller Eingriffe auf der Firewall
+- Vollständige Policy-Synchronisation pro Raum statt inkrementeller Einzeländerungen
+- Mock- und produktionsnahe Betriebsart über denselben Firewall-Agent
+- Containerisierte Ausführung für reproduzierbares Deployment
+
+## High-Level-Architektur
+
+```text
+┌─────────────────────────────────────────────────────┐
+│  Frontend (Vue 3 + TypeScript, via Nginx)           │
+└────────────────┬────────────────────────────────────┘
+                 │ HTTP/REST
+┌────────────────▼────────────────────────────────────┐
+│  Backend (FastAPI + SQLAlchemy)                     │
+│  Authentifizierung, Raumlogik, Persistenz           │
+└────────────────┬────────────────────────────────────┘
+                 │ HTTP room policy sync
+┌────────────────▼────────────────────────────────────┐
+│  Firewall-Agent (FastAPI)                           │
+│  Driver: mock | shorewall                           │
+└────────────────┬────────────────────────────────────┘
+                 │ lokale Regelgenerierung / Apply
+┌────────────────▼────────────────────────────────────┐
+│  Firewall Host / Mock Runtime                       │
+│  Regeln pro VLAN und Raum-Whitelist                 │
+└─────────────────────────────────────────────────────┘
 ```
 
 ## Komponenten
 
-### Frontend
+### 1. Frontend
 
-- **Stack:** Vue 3 + TypeScript, Vite als Build-Tool
-- **Styling:** Custom CSS mit Design-Tokens (`tokens.css`), kein Framework
-- **HTTP-Client:** Axios mit JWT-Interceptor
-- **UI-Komponenten:** `UiButton`, `UiModal`, `UiConfirm`, `UiToast`
-- **Deployment:** Multi-Stage Docker Build (Node → Nginx)
+**Aufgabe**
 
-### Backend
+- Login der Lehrpersonen
+- Anzeige aller Räume
+- Umschalten des Internetzugangs pro Raum
+- Pflege der Whitelist pro Raum
+- Anzeige von Lade- und Fehlerzuständen
 
-- **Framework:** FastAPI mit SQLAlchemy ORM
-- **Datenbank:** SQLite (einzelne Datei, Volume-Mount)
-- **Auth:** JWT-Token (8h Gültigkeit), Login via Local-DB oder LDAP
-- **Passwort-Hashing:** SHA-256 (lokale Accounts)
-- **API-Prefix:** `/api/`
-- **Scheduler:** Async-Loop (60s Intervall) für zeitgesteuerte Raumsperren
+**Technologie**
 
-### Firewall Agent
+- Vue 3
+- TypeScript
+- Vite
+- Axios
+- TailwindCSS
+- Nginx als Webserver
 
-- **Eigenständiger FastAPI-Service** auf dem Firewall-Host
-- **Zwei Driver:**
-  - `mock` — schreibt gerenderte Regeln als Dateien (Entwicklung)
-  - `shorewall` — erzeugt Shorewall-Include-Regeln + ipset-Einträge (Produktion)
-- **Kommunikation:** Backend → Agent via `PUT /rooms/policies` (Token-Auth)
-- **Whitelist-Auflösung:** Hostnamen → IPv4 via DNS, dann ipset
+**Typische Routen**
 
-### OpenLDAP
+- `/` für Login
+- `/dashboard` für Raumübersicht und Steuerung
 
-- Testverzeichnis mit vorkonfigurierten Lehrern
-- Nur in Compose aktiv; Produktion nutzt das bestehende Schulverzeichnis
+### 2. Backend
 
-## Datenmodell
+**Aufgabe**
 
+- Authentifizierung via JWT und optional LDAP
+- Verwaltung von Räumen und Whitelist-Einträgen
+- Persistenz in SQLite
+- Aggregation der Raum-Policy
+- Synchronisation der Policy an den Firewall-Agent
+
+**Technologie**
+
+- FastAPI
+- Uvicorn
+- SQLAlchemy
+- python-jose
+- bcrypt
+
+**Fachliche Verantwortung**
+
+Das Backend ist die führende Instanz für den fachlichen Zustand eines Raums. Ein Raumzustand besteht mindestens aus:
+
+- Raum-Metadaten
+- `internet_enabled`
+- aggregierter Whitelist
+
+### 3. Firewall-Agent
+
+**Aufgabe**
+
+- Entgegennahme der vollständigen Raum-Policy vom Backend
+- Übersetzung in Firewall-spezifische Regeln
+- Schreiben oder Aktualisieren der resultierenden Konfiguration
+- Anwendung der Regeln in `mock` oder `shorewall`
+
+**Betriebsmodi**
+
+- `mock`: für lokale Entwicklung und Demo
+- `shorewall`: für den produktiven Betrieb auf einem Firewall-Host
+
+### 4. Datenhaltung
+
+**Aufgabe**
+
+- Speicherung von Benutzer-, Raum- und Whitelist-Daten
+- Persistente Grundlage für Authentifizierung und Raumzustände
+
+**Technologie**
+
+- SQLite
+
+## Logische Datenobjekte
+
+### Users
+
+Speichert Benutzer und Authentifizierungsbezug.
+
+Typische Felder:
+
+- `id`
+- `username`
+- `password_hash`
+- optional LDAP-bezogene Zuordnung
+
+### Rooms
+
+Speichert die fachliche Sicht auf die Schulzimmer.
+
+Typische Felder:
+
+- `id`
+- `name`
+- `subnet`
+- `vlan_id`
+- `internet_enabled`
+
+### Whitelists
+
+Speichert die Whitelist-Einträge pro Raum.
+
+Typische Felder:
+
+- `id`
+- `name`
+- `urls`
+- `room_id`
+
+## Zentrale Datenflüsse
+
+### 1. Login
+
+```text
+Benutzer → Frontend → Backend
+         → Prüfung gegen lokale Daten oder LDAP
+         → JWT zurück an Frontend
 ```
-users
-├── id, username, password_hash
-└── vlan_id, room_name
 
-rooms
-├── id, name, subnet, vlan_id
-├── internet_enabled
-├── schedule_enabled, schedule_open_time, schedule_lock_time
-└── manual_override_active, manual_override_enabled
+### 2. Internet ein- oder ausschalten
 
-whitelist_templates
-├── id, name, urls (JSON)
-└── ↔ room_whitelist_assignments (room_id, whitelist_id, is_active)
-
-audit_logs
-├── id, timestamp, username, action
-└── target, detail (JSON), success
+```text
+Benutzeraktion im Frontend
+→ Backend aktualisiert Raumzustand
+→ Backend erzeugt vollständige Raum-Policy
+→ Firewall-Agent synchronisiert Regeln
+→ Frontend erhält aktualisierten Status
 ```
 
-Whitelists sind als Templates gespeichert und werden pro Raum einzeln aktiviert/deaktiviert.
+### 3. Whitelist ändern
 
-## Deployment
-
-```yaml
-# docker-compose.yml — 4 Services
-frontend       → Nginx, Port 80
-backend        → FastAPI, Port 8000
-ldap           → OpenLDAP, Port 389
-shorewall-mock → Firewall Agent, Port 8081
+```text
+Benutzeraktion im Frontend
+→ Backend speichert oder ändert Whitelist-Eintrag
+→ Backend aggregiert alle Einträge des Raums
+→ vollständige Raum-Policy an Firewall-Agent
+→ Firewall-Agent rendert und aktiviert Regeln
 ```
 
-Alle Konfiguration über Umgebungsvariablen. SQLite und Firewall-State als Volume-Mounts.
+## Policy-Modell
 
-## API-Endpunkte
+Die Architektur folgt einem synchronisierten Zielzustand je Raum.
 
-| Methode | Pfad | Beschreibung |
-|---------|------|-------------|
-| POST | `/api/login` | Login (form-data) |
-| GET | `/api/rooms` | Alle Räume mit Status |
-| POST | `/api/rooms/{id}/toggle` | Internet ein/aus (setzt manuellen Override) |
-| PUT | `/api/rooms/{id}/schedule` | Zeitplan konfigurieren |
-| GET | `/api/whitelists` | Whitelists abrufen |
-| POST | `/api/whitelists` | Whitelist erstellen |
-| PUT | `/api/whitelists/{id}` | Whitelist bearbeiten |
-| PATCH | `/api/whitelists/{id}/toggle` | Whitelist aktivieren/deaktivieren |
-| DELETE | `/api/whitelists/{id}` | Whitelist löschen |
-| GET | `/api/audit` | Audit-Log |
-| GET | `/api/health` | Health-Check |
+Das bedeutet:
 
-## Firewall-Synchronisation
+- Es wird nicht nur eine Einzelaktion übertragen.
+- Stattdessen wird pro Raum immer die vollständige Policy synchronisiert.
+- Dadurch bleibt der Firewall-Zustand reproduzierbar und konsistent.
 
-Bei jeder Änderung (Toggle, Whitelist, Zeitplan) synchronisiert das Backend die **komplette Room-Policy** zum Firewall Agent:
+Eine Raum-Policy umfasst mindestens:
 
-```json
-{
-  "rooms": [{
-    "vlan_id": 18,
-    "subnet": "10.3.18.0/24",
-    "internet_enabled": false,
-    "whitelist_entries": ["google.com", "wikipedia.org"]
-  }]
-}
-```
+- Raumidentität
+- VLAN oder Subnet-Bezug
+- `internet_enabled`
+- bereinigte, aggregierte Whitelist-Domains
 
-Der Agent rendert daraus Shorewall-Regeln und ipset-Einträge.
+## Normalisierung von Whitelist-Einträgen
 
-## Zeitsteuerung
+Vor der Synchronisation werden Einträge vereinheitlicht.
 
-- Pro Raum konfigurierbar: Sperrzeit (Lock) und Freigabezeit (Open)
-- Backend prüft alle 60 Sekunden und bei jedem Room-Request
-- Manueller Override überschreibt den Zeitplan bis zum Zurücksetzen
+Beispiele:
+
+- `https://google.com/path` wird zu `google.com`
+- `*.example.org` wird zu `example.org`
+
+Dadurch kann der Firewall-Agent mit konsistenten Zielwerten arbeiten.
+
+## Deployment-Sicht
+
+Die Laufzeitumgebung basiert auf Docker Compose.
+
+Typische Services:
+
+- `frontend`
+- `backend`
+- `firewall-agent` oder Mock-Service
+- unterstützende Infrastruktur wie LDAP-Testverzeichnis
+
+Die konkrete Betriebsanleitung, Umgebungsvariablen und Startbefehle sind absichtlich nur im README dokumentiert.
+
+## Sicherheitsüberlegungen
+
+### Authentifizierung
+
+- JWT für Session-basierte API-Zugriffe
+- LDAP optional für zentrale Benutzerverwaltung
+
+### Schnittstellenabsicherung
+
+- Firewall-Agent über Token absichern
+- Trennung von UI, Business-Logik und Firewall-Apply
+
+### Betriebsrisiken
+
+- Fehlerhafte Whitelist-Einträge werden vor der Synchronisation normalisiert
+- Mock-Modus reduziert Risiken in Entwicklung und Demo
+- Vollständige Policy-Synchronisation reduziert Drift zwischen Soll und Ist
+
+## Erweiterungsmöglichkeiten
+
+- Produktive LDAP-Integration
+- Erweiterte Rollen und Berechtigungen
+- Audit-Logging für Policy-Änderungen
+- Historisierung von Raumzuständen
+- Zusätzliche Firewall-Driver neben Shorewall
+- Health Checks und Monitoring pro Komponente
+

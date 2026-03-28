@@ -1,150 +1,120 @@
-# Internet EIN/AUS - Hackathon Challenge 1
+# OnOffLine
 
-Web-basiertes Kontrollpanel für Lehrer zur Steuerung des Internetzugangs in 7 Schulräumen (VLANs) am zB. Zentrum Bildung Baden.
+Web-basiertes Kontrollpanel für Lehrpersonen zur Steuerung des Internetzugangs in 7 Schulzimmern. Pro Raum kann der Internetzugang ein- oder ausgeschaltet sowie eine Whitelist gepflegt werden.
 
-## 🎯 Features
+Die technische Detailarchitektur ist in [`ARCHITECTURE.md`](./ARCHITECTURE_revised.md) dokumentiert.
 
-- ✅ **Multi-Room Control**: Alle Lehrer können alle 7 Räume steuern
-- ✅ **Internet Toggle**: Internet pro Raum aktivieren/deaktivieren
-- ✅ **URL-Whitelist**: Pro-Raum Whitelist-Verwaltung
-- ✅ **Modern Stack**: Vue 3 + TypeScript Frontend, FastAPI Backend
-- ✅ **Docker Deployment**: Vollständig containerisiert
-- ✅ **Firewall Integration**: Remote Firewall-Agent für Shorewall/MOCK
+## Ziel des Projekts
 
-## 🏗️ Architektur
+Die Anwendung ermöglicht es, den Internetzugang pro Schulzimmer einfach und zentral zu steuern, ohne direkt auf der Firewall arbeiten zu müssen.
 
-```
-┌─────────────────────────────────────────────────────┐
-│  Frontend (Vue 3 + TypeScript)                      │
-│  Port: 80 (nginx)                                   │
-└────────────────┬────────────────────────────────────┘
-                 │
-                 │ HTTP/REST
-                 │
-┌────────────────▼────────────────────────────────────┐
-│  Backend (FastAPI + SQLAlchemy)                     │
-│  Port: 8000                                         │
-│  Auth: JWT / LDAP                                   │
-└────────────────┬────────────────────────────────────┘
-                 │
-                 │ HTTP room policy sync
-                 │
-┌────────────────▼────────────────────────────────────┐
-│  Firewall Agent (FastAPI)                           │
-│  Port: 8081 (mock in Compose)                       │
-│  Driver: mock | shorewall                           │
-└────────────────┬────────────────────────────────────┘
-                 │
-                 │ local command execution on firewall host
-                 │
-┌────────────────▼────────────────────────────────────┐
-│  Shorewall Firewall Host                            │
-│  Managed rules per VLAN and room whitelist          │
-│  7 VLANs: 18-22, 118-119                            │
-└─────────────────────────────────────────────────────┘
-```
+## Funktionsumfang
 
-## 🚀 Quick Start
+- Multi-Room-Steuerung für 7 Schulzimmer
+- Internet pro Raum aktivieren oder deaktivieren
+- URL-Whitelist pro Raum verwalten
+- Web-Frontend mit Vue 3 und TypeScript
+- Backend mit FastAPI
+- Containerisiertes Deployment mit Docker Compose
+- Anbindung an einen Firewall-Agent für Mock oder Shorewall
+- LDAP-Testverzeichnis in der Compose-Umgebung
+
+## Systemüberblick
+
+Die Anwendung besteht aus vier Hauptkomponenten:
+
+- **Frontend** für Login und Bedienung
+- **Backend** für Authentifizierung, Raumlogik und Persistenz
+- **Firewall-Agent** für die Synchronisation der Raum-Policies auf die Firewall
+- **SQLite** für Benutzer-, Raum- und Whitelist-Daten
+
+Eine technische Darstellung mit Datenflüssen, Komponenten und Verantwortlichkeiten befindet sich in `ARCHITECTURE.md`.
+
+## Quick Start
 
 ### Voraussetzungen
 
-- **Docker** & **Docker Compose** installiert
-- Für den Mock: keine Firewall-Hardware nötig
-- Für Produktion: ein erreichbarer Debian/Shorewall-Host für den Firewall-Agent
+- Docker
+- Docker Compose
 
-### 1. Repository klonen
+Für den Mock-Betrieb ist keine echte Firewall-Hardware nötig. Für einen produktiven Betrieb wird ein erreichbarer Shorewall-Host für den Firewall-Agent benötigt.
+
+### Repository klonen
 
 ```bash
-git clone https://github.com/raphiclaw/internet-ein-aus.git
-cd internet-ein-aus
+git clone https://github.com/Cyrilxd/BadenHackt.git
+cd BadenHackt
 ```
 
-### 2. Anwendung starten
+### Container starten
 
 ```bash
-# Container bauen und starten
 docker-compose up -d
+```
 
-# Logs anzeigen (optional)
+Optionale Logs:
+
+```bash
 docker-compose logs -f
 ```
 
-### 3. Zugriff auf die Anwendung
+## Zugriff auf die Anwendung
 
-**Frontend**: http://localhost (Port 80)  
-**Backend API**: http://localhost:8000  
-**Firewall Mock API**: http://localhost:8081  
-**API Dokumentation (Swagger UI)**: http://localhost:8000/docs
-**API Dokumentation (ReDoc)**: http://localhost:8000/redoc
-**Health Check**: http://localhost:8000/api/health
+- **Frontend:** `http://localhost`
+- **Backend API:** `http://localhost:8000`
+- **API-Dokumentation:** `http://localhost:8000/docs`
+- **Firewall Mock API:** `http://localhost:8081`
 
-### 4. Login
+## Login und Testdaten
 
-**Test-Accounts** (vor LDAP-Integration):
+### Test-Accounts
 
-| Username | Password | Rolle   |
-|----------|----------|---------|
+| Username | Password | Rolle |
+|----------|----------|-------|
 | lehrer   | admin123 | Teacher |
 | mueller  | admin123 | Teacher |
 | schmidt  | admin123 | Teacher |
 
-Mit der Compose-Umgebung läuft jetzt zusätzlich ein OpenLDAP-Testverzeichnis auf `ldap://localhost:389`. Das Backend verwendet standardmässig `AUTH_MODE=ldap` und authentifiziert die gleichen Test-Accounts gegen LDAP.
+### LDAP-Testverzeichnis
 
-### LDAP Test Directory
+In der Compose-Umgebung läuft zusätzlich ein OpenLDAP-Testverzeichnis.
 
-- Base DN: `dc=hackathon,dc=local`
-- Bind DN: `cn=admin,dc=hackathon,dc=local`
-- Bind Password: `admin`
-- User Search Base: `ou=users,dc=hackathon,dc=local`
-- Test Group: `cn=teachers,ou=groups,dc=hackathon,dc=local`
+- **LDAP URL:** `ldap://localhost:389`
+- **Base DN:** `dc=hackathon,dc=local`
+- **Bind DN:** `cn=admin,dc=hackathon,dc=local`
+- **Bind Password:** `admin`
+- **User Search Base:** `ou=users,dc=hackathon,dc=local`
+- **Test Group:** `cn=teachers,ou=groups,dc=hackathon,dc=local`
 
-Die LDIF-Seed-Daten liegen in [docker/openldap/ldif/10-users-and-groups.ldif](/Users/daniel/dev/BadenHackt/docker/openldap/ldif/10-users-and-groups.ldif).
+Das Backend verwendet standardmässig `AUTH_MODE=ldap` und authentifiziert die Test-Accounts gegen dieses Verzeichnis.
 
-## 🏫 Räume & VLANs
+## Schulzimmer und VLANs
 
-| Raum     | VLAN ID | Subnet         |
-|----------|---------|----------------|
-| Zimmer 1 | 18      | 10.3.18.0/24   |
-| Zimmer 2 | 19      | 10.3.19.0/24   |
-| Zimmer 3 | 20      | 10.3.20.0/24   |
-| Zimmer 4 | 21      | 10.3.21.0/24   |
-| Zimmer 5 | 22      | 10.3.22.0/24   |
-| Zimmer 6 | 118     | 10.3.118.0/24  |
-| Zimmer 7 | 119     | 10.3.119.0/24  |
+| Raum     | VLAN ID | Subnet        |
+|----------|---------|---------------|
+| Zimmer 1 | 18      | 10.3.18.0/24  |
+| Zimmer 2 | 19      | 10.3.19.0/24  |
+| Zimmer 3 | 20      | 10.3.20.0/24  |
+| Zimmer 4 | 21      | 10.3.21.0/24  |
+| Zimmer 5 | 22      | 10.3.22.0/24  |
+| Zimmer 6 | 118     | 10.3.118.0/24 |
+| Zimmer 7 | 119     | 10.3.119.0/24 |
 
-## 📦 Projekt-Struktur
+## Projektstruktur
 
-```
+```text
 internet-ein-aus/
-├── backend/                 # FastAPI Backend
-│   ├── app/
-│   │   ├── main.py         # API Endpoints
-│   │   ├── auth.py         # JWT Authentication
-│   │   ├── firewall.py     # Remote firewall agent client
-│   │   ├── database.py     # SQLAlchemy Models
-│   │   └── init_data.py    # Test-Daten Generator
-│   ├── Dockerfile
-│   └── requirements.txt
-├── firewall-agent/         # Firewall API für Mock/Shorewall
-│   ├── app/main.py         # Room policy sync + Shorewall driver
-│   ├── Dockerfile
-│   └── requirements.txt
-├── frontend/               # Vue 3 Frontend
-│   ├── src/
-│   │   ├── App.vue
-│   │   ├── components/
-│   │   │   ├── Login.vue
-│   │   │   └── Dashboard.vue
-│   │   └── api.ts         # API Client
-│   ├── Dockerfile
-│   └── package.json
-├── docker-compose.yml      # Container Orchestrierung
-└── README.md
+├── backend/               # FastAPI Backend
+├── firewall-agent/        # Agent für Mock oder Shorewall
+├── frontend/              # Vue 3 Frontend
+├── docker-compose.yml     # Lokale Orchestrierung
+├── README.md              # Einstieg, Setup, Betrieb
+└── ARCHITECTURE.md        # Technische Detailarchitektur
 ```
 
-## 🔧 Entwicklung
+## Lokale Entwicklung
 
-### Backend starten (lokal)
+### Backend lokal starten
 
 ```bash
 cd backend
@@ -154,7 +124,7 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-### Frontend starten (lokal)
+### Frontend lokal starten
 
 ```bash
 cd frontend
@@ -169,11 +139,9 @@ cd backend
 python -m app.init_data
 ```
 
-## 🛠️ Konfiguration
+## Konfiguration
 
-### Umgebungsvariablen (Backend)
-
-Wichtige Backend-Variablen:
+### Relevante Backend-Variablen
 
 ```env
 SECRET_KEY=your-secret-key-here-change-in-production
@@ -182,7 +150,7 @@ FIREWALL_API_URL=http://shorewall-mock:8080
 FIREWALL_API_TOKEN=change-me
 ```
 
-Wichtige Firewall-Agent-Variablen auf dem echten Firewall-Host:
+### Relevante Firewall-Agent-Variablen
 
 ```env
 FIREWALL_DRIVER=shorewall
@@ -193,55 +161,65 @@ SHOREWALL_RULES_FILE=/etc/shorewall/rules
 SHOREWALL_MANAGED_RULES_FILE=/etc/shorewall/rules.d/badenhackt.rules
 ```
 
-### Firewall-Verhalten
+## Verhalten der Firewall-Synchronisation
 
-- Der Backend-Server synchronisiert pro Zimmer immer die komplette Policy: `internet_enabled` plus die aggregierte Whitelist aller gespeicherten Listen dieses Zimmers.
-- In der Compose-Umgebung läuft der Agent im `mock`-Modus und schreibt die gerenderten Regeln nach [`data/firewall-agent/mock/badenhackt.rules`](/Users/daniel/dev/BadenHackt/data/firewall-agent/mock/badenhackt.rules).
-- Auf dem echten Firewall-Host läuft derselbe Agent mit `FIREWALL_DRIVER=shorewall` und erzeugt ein Shorewall-Include-File sowie die passenden `ipset`-Einträge.
-- Whitelist-Einträge werden vor dem Speichern auf Hostnamen normalisiert. `https://google.com/path` wird z.B. zu `google.com`.
-- Wildcard-Präfixe wie `*.example.org` werden auf `example.org` reduziert, weil die Shorewall-Synchronisation mit aufgelösten IP-Zielen arbeitet.
+- Das Backend synchronisiert pro Raum immer die komplette Policy.
+- Diese Policy besteht aus `internet_enabled` und der aggregierten Whitelist des jeweiligen Raums.
+- In der Compose-Umgebung läuft der Agent im `mock`-Modus.
+- Auf einem echten Firewall-Host läuft derselbe Agent mit `FIREWALL_DRIVER=shorewall`.
+- Whitelist-Einträge werden vor dem Speichern auf Hostnamen normalisiert.
+- Wildcard-Präfixe wie `*.example.org` werden auf `example.org` reduziert.
 
-## 🔐 Sicherheit
+## API-Endpunkte
 
-### LDAP-Integration (TODO)
+### Authentication
 
-Für Produktion kann die Test-Konfiguration durch das echte Verzeichnis ersetzt werden:
+- `POST /api/login`
 
-**Benötigte Informationen:**
-- LDAP Server Hostname/IP
-- Port (389 oder 636 für LDAPS)
+### Rooms
+
+- `GET /api/rooms`
+- `POST /api/rooms/{room_id}/toggle`
+
+### Whitelist
+
+- `GET /api/whitelists?room_id={id}`
+- `POST /api/whitelists`
+- `PUT /api/whitelists/{id}`
+- `DELETE /api/whitelists/{whitelist_id}`
+
+## Sicherheit
+
+### LDAP für Produktion
+
+Für Produktion kann die Test-Konfiguration durch ein echtes LDAP-Verzeichnis ersetzt werden.
+
+Dafür werden mindestens folgende Angaben benötigt:
+
+- LDAP Hostname oder IP
+- LDAP Port
 - Base DN
-- Bind-Methode (Simple Bind oder Service Account)
+- Bind-Methode
+- Optional angepasste Search Base und Search Filter
 
-**Integration:**
-1. `AUTH_MODE=ldap` oder `AUTH_MODE=auto` setzen
-2. `LDAP_HOST`, `LDAP_PORT`, `LDAP_BASE_DN`, `LDAP_BIND_DN`, `LDAP_BIND_PASSWORD` anpassen
-3. Falls nötig `LDAP_USER_SEARCH_BASE` und `LDAP_USER_SEARCH_FILTER` für Active Directory ändern
-
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ### Container starten nicht
 
 ```bash
-# Logs prüfen
 docker-compose logs
-
-# Container neu bauen
 docker-compose down
 docker-compose up --build -d
 ```
 
-### Firewall-Regeln funktionieren nicht
+### Firewall-Regeln prüfen
 
 ```bash
-# Mock-Regeln prüfen
 sed -n '1,120p' data/firewall-agent/mock/badenhackt.rules
-
-# Agent-Logs prüfen
 docker-compose logs shorewall-mock
 ```
 
-Wenn der Agent auf dem echten Firewall-Host läuft:
+Auf einem echten Firewall-Host zusätzlich:
 
 ```bash
 shorewall check
@@ -249,39 +227,17 @@ shorewall refresh
 ipset list
 ```
 
-### Frontend kann Backend nicht erreichen
+### Frontend erreicht Backend nicht
 
 ```bash
-# Backend-Status prüfen
 curl http://localhost:8000/docs
-
-# Netzwerk-Konfiguration prüfen
 docker-compose ps
 ```
 
-## 📝 API Endpoints
+## Lizenz
 
-### Authentication
-- `POST /api/login` - Login (form-data: username, password)
+MIT License
 
-### Rooms
-- `GET /api/rooms` - Alle Räume abrufen
-- `POST /api/rooms/{room_id}/toggle` - Internet aktivieren/deaktivieren
-
-### Whitelist
-- `GET /api/whitelists?room_id={id}` - Whitelist eines Raums abrufen
-- `POST /api/whitelists` - URL/Domain zur Whitelist hinzufügen und auf Firewall synchronisieren
-- `PUT /api/whitelists/{id}` - Whitelist aktualisieren und auf Firewall synchronisieren
-- `DELETE /api/whitelists/{whitelist_id}` - URL von Whitelist entfernen
-
-## 📄 Lizenz
-
-MIT License - siehe LICENSE Datei
-
-## 👥 Team
+## Team
 
 Entwickelt für den zB. Zentrum Bildung Baden Hackathon.
-
----
-
-**Status**: ✅ MVP Ready | 🚧 LDAP Integration pending
