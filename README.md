@@ -240,4 +240,9 @@ MIT License
 
 ## Team
 
-Entwickelt für den zB. Zentrum Bildung Baden Hackathon.
+- Raphael Bapst: https://www.linkedin.com/in/raphael-bapst/
+- Michael Bapst: https://www.linkedin.com/in/michael-bapst-480368255/
+- Daniel Butler: https://www.linkedin.com/in/danielbutlerismyname/
+- Cyril Heiniger: https://www.linkedin.com/in/cyril-heiniger/
+
+Entwickelt für das zB. Zentrum Bildung Baden  am BadenHackt Hackathon.
